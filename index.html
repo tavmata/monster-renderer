@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D Procedural Monster Renderer Studio</title>
+  <meta name="description" content="Interactive visual testing studio for 2MMORPG procedural lineless monsters, mobs, bosses, and creatures.">
+  <style>
+    :root {
+      --bg-primary: #0b1120;
+      --bg-surface: #131d31;
+      --bg-card: #1e293b;
+      --border-color: #334155;
+      --border-focus: #38bdf8;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 16px 28px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-cyan);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.4px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 20px;
+      padding: 24px;
+      flex: 1;
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 960px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .viewport-container {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      background: radial-gradient(circle at center, #1a2538 0%, #0d1524 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5), 0 8px 30px rgba(0, 0, 0, 0.4);
+      height: 600px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+    }
+
+    .hud-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(11, 17, 32, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 14px;
+    }
+
+    .sidebar {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+      max-height: calc(100vh - 120px);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    select, input[type="range"], input[type="text"] {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus, input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button:hover {
+      background: #0369a1;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: #334155;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .toggle-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent-cyan);
+      cursor: pointer;
+    }
+
+    .slider-val {
+      font-size: 11px;
+      color: var(--text-muted);
+      float: right;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="brand-badge">Procedural Engine</span>
+      <div>
+        <h1>Monster Renderer Studio</h1>
+        <p class="subtitle">Interactive lineless monster kinematics & volumetric asset preview</p>
+      </div>
+    </div>
+    <div>
+      <span style="font-size: 12px; color: var(--text-muted);">@2mmorpg/monster-renderer v1.0.0</span>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <div class="viewport-container">
+      <div class="canvas-wrap">
+        <canvas id="viewCanvas" width="800" height="600"></canvas>
+        <div class="hud-overlay">
+          <span>FPS: <strong id="fpsVal" style="color:#10b981;">60</strong></span>
+          <span>Entity: <strong id="hudEntType" style="color:#38bdf8;">Slime</strong></span>
+          <span>Angle: <strong id="hudAngle">0 deg</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <!-- Monster Category -->
+      <div class="control-group">
+        <label for="mobType">Monster Family</label>
+        <select id="mobType" onchange="onMonsterFamilyChange(this.value)">
+          <option value="slime">Organic Slime (Soft-Body Wobble)</option>
+          <option value="wolf">Wolf / Canine (Digitigrade Quadruped)</option>
+          <option value="frost_troll">Frost Troll (8-Dir Octagonal Kinematics)</option>
+          <option value="goblin">Goblin Infantry (8-Dir Armed Stance)</option>
+          <option value="skeleton">Skeleton Warrior (Generic Undead)</option>
+          <option value="spider">Giant Cave Spider (Multi-Leg Stepping)</option>
+          <option value="boss_void">Void Terror (Monolithic Boss)</option>
+        </select>
+      </div>
+
+      <!-- Variant -->
+      <div class="control-group">
+        <label for="mobVariant">Variant & Tier</label>
+        <select id="mobVariant" onchange="onVariantChange(this.value)">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <!-- Facing Angle -->
+      <div class="control-group">
+        <label for="angleSlider">Facing Direction <span class="slider-val" id="angleDeg">0 deg</span></label>
+        <input type="range" id="angleSlider" min="0" max="6.283" step="0.05" value="0" oninput="onAngleInput(this.value)">
+      </div>
+
+      <!-- Scale / Zoom -->
+      <div class="control-group">
+        <label for="scaleSlider">Preview Zoom <span class="slider-val" id="scaleVal">2.0x</span></label>
+        <input type="range" id="scaleSlider" min="1.0" max="4.0" step="0.25" value="2.0" oninput="onScaleInput(this.value)">
+      </div>
+
+      <!-- Health Bar -->
+      <div class="control-group">
+        <label for="hpSlider">Entity Health <span class="slider-val" id="hpPercent">100%</span></label>
+        <input type="range" id="hpSlider" min="0" max="100" value="100" oninput="onHpInput(this.value)">
+      </div>
+
+      <!-- Actions & Toggles -->
+      <div class="control-group">
+        <label>Actions & States</label>
+        <div class="btn-row">
+          <button onclick="triggerAttack()">Attack</button>
+          <button class="btn-secondary" onclick="triggerHitFlash()">Hit Flash</button>
+        </div>
+        <div style="margin-top: 6px;">
+          <button class="btn-secondary" style="width: 100%; border-color: var(--accent-rose); color: var(--accent-rose);" onclick="triggerLimbExplosion()">Trigger Death Explosion</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>Kinematic Flags</label>
+        <label class="toggle-row">
+          <span>Walking Gait / Moving</span>
+          <input type="checkbox" id="chkMoving" checked>
+        </label>
+        <label class="toggle-row">
+          <span>Slowed Effect (Frost Chill)</span>
+          <input type="checkbox" id="chkSlowed">
+        </label>
+        <label class="toggle-row">
+          <span>Draw Health Nameplate</span>
+          <input type="checkbox" id="chkHpBar" checked>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      drawMonster,
+      drawSlimeEntity,
+      drawWolfEntity,
+      drawFrostTrollEntity,
+      drawGoblinEntity,
+      drawGenericMob,
+      drawEntityHP,
+      triggerWolfDeathLimbExplosion
+    } from './src/index.js';
+
+    window.shouldShowMobHpBar = () => document.getElementById('chkHpBar').checked;
+
+    const VARIANTS = {
+      slime: [
+        { label: "Forest Green Slime", val: "slime" },
+        { label: "Toxic Acid Slime", val: "toxic_slime" },
+        { label: "Magma Core Slime", val: "magma_slime" },
+        { label: "Deep Frost Slime", val: "frost_slime" },
+        { label: "Elite Golden Slime (Crown)", val: "elite_slime" }
+      ],
+      wolf: [
+        { label: "Grey Forest Wolf", val: "wolf" },
+        { label: "Dire Wolf (Spine Fur Mantle)", val: "dire_wolf" },
+        { label: "Blood Fang Alpha Wolf", val: "alpha_wolf" },
+        { label: "Frost White Wolf", val: "arctic_wolf" }
+      ],
+      frost_troll: [
+        { label: "Ancient Frost Troll", val: "frost_troll" },
+        { label: "Glacial Berserker", val: "glacial_troll" }
+      ],
+      goblin: [
+        { label: "Goblin Scout (Dagger)", val: "goblin" },
+        { label: "Goblin Warrior (Wooden Shield)", val: "goblin_warrior" },
+        { label: "Goblin Archer", val: "goblin_archer" },
+        { label: "Goblin Chieftain", val: "boss_goblin" }
+      ],
+      skeleton: [
+        { label: "Skeletal Soldier", val: "skeleton" },
+        { label: "Undead Crypt Knight", val: "elite_knight" }
+      ],
+      spider: [
+        { label: "Cave Weaver Spider", val: "spider" },
+        { label: "Venomous Broodmother", val: "boss_crystal_weaver" }
+      ],
+      boss_void: [
+        { label: "Void Terror Leviathan", val: "boss_void_terror" },
+        { label: "Obsidian Golem", val: "boss_obsidian_golem" }
+      ]
+    };
+
+    const canvas = document.getElementById('viewCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const state = {
+      family: "slime",
+      type: "slime",
+      angle: 0,
+      scale: 2.0,
+      hp: 100,
+      maxHp: 100,
+      isAttacking: false,
+      attackTime: 0,
+      flashTime: 0,
+      seed: 42
+    };
+
+    window.onMonsterFamilyChange = (fam) => {
+      state.family = fam;
+      updateVariantDropdown(fam);
+      state.type = VARIANTS[fam][0].val;
+      document.getElementById('hudEntType').innerText = VARIANTS[fam][0].label;
+    };
+
+    window.onVariantChange = (v) => {
+      state.type = v;
+      document.getElementById('hudEntType').innerText = v;
+    };
+
+    window.onAngleInput = (rad) => {
+      state.angle = parseFloat(rad);
+      const deg = Math.round(state.angle * (180 / Math.PI));
+      document.getElementById('angleDeg').innerText = deg + " deg";
+      document.getElementById('hudAngle').innerText = deg + " deg";
+    };
+
+    window.onScaleInput = (sc) => {
+      state.scale = parseFloat(sc);
+      document.getElementById('scaleVal').innerText = state.scale.toFixed(1) + "x";
+    };
+
+    window.onHpInput = (val) => {
+      state.hp = parseInt(val, 10);
+      document.getElementById('hpPercent').innerText = state.hp + "%";
+    };
+
+    window.triggerAttack = () => {
+      state.isAttacking = true;
+      state.attackTime = performance.now();
+    };
+
+    window.triggerHitFlash = () => {
+      state.flashTime = performance.now();
+    };
+
+    window.triggerLimbExplosion = () => {
+      const dummyCe = {
+        id: "preview_mob",
+        type: state.type,
+        hp: 0,
+        maxHp: 100,
+        x: canvas.width / 2,
+        y: canvas.height / 2
+      };
+      triggerWolfDeathLimbExplosion(dummyCe);
+    };
+
+    function updateVariantDropdown(fam) {
+      const sel = document.getElementById('mobVariant');
+      sel.innerHTML = "";
+      const list = VARIANTS[fam] || [];
+      list.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.val;
+        opt.innerText = item.label;
+        sel.appendChild(opt);
+      });
+    }
+
+    // Initialize dropdown
+    updateVariantDropdown("slime");
+
+    // 60 FPS Render Loop
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let fpsTime = lastTime;
+
+    function renderLoop(now) {
+      frameCount++;
+      if (now - fpsTime >= 500) {
+        const fps = Math.round((frameCount * 1000) / (now - fpsTime));
+        document.getElementById('fpsVal').innerText = fps;
+        frameCount = 0;
+        fpsTime = now;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const isMoving = document.getElementById('chkMoving').checked;
+      const isSlowed = document.getElementById('chkSlowed').checked;
+      const showHp = document.getElementById('chkHpBar').checked;
+
+      if (state.isAttacking && now - state.attackTime > 500) {
+        state.isAttacking = false;
+      }
+
+      const ent = {
+        id: "preview_mob",
+        type: state.type,
+        x: 0,
+        y: 0,
+        hp: state.hp,
+        maxHp: state.maxHp,
+        facingAngle: state.angle,
+        moving: isMoving,
+        isMoving: isMoving,
+        isSlowed: isSlowed,
+        isAttacking: state.isAttacking,
+        currentCast: state.isAttacking ? { progress: 0.5 } : null,
+        _seed: state.seed
+      };
+
+      ctx.save();
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+
+      ctx.translate(cx, cy);
+      ctx.scale(state.scale, state.scale);
+
+      // Draw Monster
+      drawMonster(ctx, 0, 0, ent);
+
+      // Draw HP Bar
+      if (showHp) {
+        drawEntityHP(ctx, ent, 0, 0);
+      }
+
+      ctx.restore();
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    requestAnimationFrame(renderLoop);
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "@2mmorpg/monster-renderer",
+  "version": "1.0.0",
+  "description": "High-performance procedural lineless monster, mob, boss and creature renderer for HTML5 Canvas",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3002",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 3002",
+    "lint": "node --check src/index.js && node --check src/helpers.js && node --check src/slimes.js && node --check src/wolves.js && node --check src/trolls.js && node --check src/goblins.js && node --check src/genericMobs.js && node --check src/mobUi.js && node --check src/monster.js",
+    "test": "node --check src/index.js"
+  },
+  "keywords": [
+    "canvas",
+    "2d",
+    "monster-renderer",
+    "mob-renderer",
+    "procedural",
+    "game-dev",
+    "rpg",
+    "lineless",
+    "creatures",
+    "bosses"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^8.3.0"
+  }
+}
