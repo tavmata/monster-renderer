@@ -12,6 +12,22 @@ const _MOB_OFFSETS_CACHE = {
   "elite_knight": Object.freeze({ hpOffset: 102, nameOffset: 122 }),
   "elite_archer": Object.freeze({ hpOffset: 102, nameOffset: 122 }),
   "player": Object.freeze({ hpOffset: 95, nameOffset: 115 }),
+  "boss_goblin_king": Object.freeze({ hpOffset: 145, nameOffset: 165 }),
+  "boss_goblin": Object.freeze({ hpOffset: 120, nameOffset: 140 }),
+  "goblin_brute": Object.freeze({ hpOffset: 98, nameOffset: 116 }),
+  "goblin_warrior": Object.freeze({ hpOffset: 95, nameOffset: 115 }),
+  "goblin": Object.freeze({ hpOffset: 78, nameOffset: 96 }),
+  "boss_slime": Object.freeze({ hpOffset: 135, nameOffset: 155 }),
+  "boss_wolf": Object.freeze({ hpOffset: 135, nameOffset: 155 }),
+  "slime_heavy": Object.freeze({ hpOffset: 88, nameOffset: 106 }),
+  "wolf_alpha": Object.freeze({ hpOffset: 88, nameOffset: 106 }),
+  "slime": Object.freeze({ hpOffset: 65, nameOffset: 82 }),
+  "wolf": Object.freeze({ hpOffset: 75, nameOffset: 92 }),
+  "corrupted_wolf": Object.freeze({ hpOffset: 75, nameOffset: 92 }),
+  "dire_wolf": Object.freeze({ hpOffset: 75, nameOffset: 92 }),
+  "plague_rat": Object.freeze({ hpOffset: 55, nameOffset: 72 }),
+  "boss_plague_rat": Object.freeze({ hpOffset: 95, nameOffset: 115 }),
+  "frost_troll": Object.freeze({ hpOffset: 96, nameOffset: 114 }),
 };
 
 export function getMobUiOffsets(ent) {
