@@ -557,28 +557,27 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   }
   ctx.restore();
 
-  // 10. Separated DVD Screensaver Bouncing Eyes (Independent Trajectories & Color Shifts)
+  // 10. Separated DVD Screensaver Bouncing Eyes (Roaming Across the Entire Slime Body)
   const isBlinking = (now + seed * 10) % 4200 < 160;
-  const baseEyeY = -radius * 0.06;
   const eyeR = radius * 0.18;
 
   const entKey = ent.id || "preview_mob";
   let dvd = _dvdEyeMap.get(entKey);
   if (!dvd || !dvd.left || !dvd.right) {
-    const baseSpeed = Math.max(8.0, radius * 0.44);
-    // Each eye starts with its own independent diagonal velocity and position
+    const baseSpeed = Math.max(9.5, radius * 0.52);
+    // Each eye starts in a different quadrant and travels across the full slime volume
     dvd = {
       left: {
-        x: -radius * 0.26,
-        y: (seed % 5) - 2.5,
+        x: -radius * 0.42,
+        y: -radius * 0.15,
         vx: -baseSpeed * 0.95,
         vy: baseSpeed * 0.85,
         colorIndex: seed % DVD_SCREENSAVER_COLORS.length,
         lastBounceTime: now
       },
       right: {
-        x: radius * 0.26,
-        y: (Math.floor(seed / 3) % 5) - 2.5,
+        x: radius * 0.42,
+        y: radius * 0.15,
         vx: baseSpeed * 1.05,
         vy: -baseSpeed * 0.90,
         colorIndex: (seed + 3) % DVD_SCREENSAVER_COLORS.length,
@@ -593,58 +592,52 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const dt = Math.min(0.08, Math.max(0.001, (now - dvd.lastTime) / 1000));
   dvd.lastTime = now;
 
-  // Individual bounding boundaries within internal jelly volume
-  const boundX = radius * 0.42;
-  const boundY = radius * 0.26;
+  // Full-body internal fluid roaming bounds (covering the entire slime volume)
+  const roamingRadiusX = radius * 0.82;
+  const roamingRadiusY = radius * 0.76;
 
-  // Update and bounce both eyes separately
+  // Update and bounce both eyes separately across the entire slime body
   const updateSingleEye = (eye) => {
     eye.x += eye.vx * dt;
     eye.y += eye.vy * dt;
 
-    let hitWallX = false;
-    let hitWallY = false;
+    // Elliptical fluid membrane boundary test
+    const nx = eye.x / roamingRadiusX;
+    const ny = eye.y / roamingRadiusY;
+    const normDist = Math.hypot(nx, ny);
 
-    // Horizontal wall ricochet
-    if (eye.x >= boundX) {
-      eye.x = boundX;
-      eye.vx = -Math.abs(eye.vx);
-      hitWallX = true;
-    } else if (eye.x <= -boundX) {
-      eye.x = -boundX;
-      eye.vx = Math.abs(eye.vx);
-      hitWallX = true;
-    }
+    if (normDist >= 1.0) {
+      // Clamp eye position just inside the gelatin membrane
+      eye.x = (nx / normDist) * roamingRadiusX;
+      eye.y = (ny / normDist) * roamingRadiusY;
 
-    // Vertical wall ricochet
-    if (eye.y >= boundY) {
-      eye.y = boundY;
-      eye.vy = -Math.abs(eye.vy);
-      hitWallY = true;
-    } else if (eye.y <= -boundY) {
-      eye.y = -boundY;
-      eye.vy = Math.abs(eye.vy);
-      hitWallY = true;
-    }
+      // Surface normal reflection
+      const normalX = nx / normDist;
+      const normalY = ny / normDist;
+      const dot = eye.vx * normalX + eye.vy * normalY;
 
-    // Independent DVD color shift upon hitting any border
-    if (hitWallX || hitWallY) {
-      eye.colorIndex = (eye.colorIndex + 1) % DVD_SCREENSAVER_COLORS.length;
-      eye.lastBounceTime = now;
+      if (dot > 0) {
+        eye.vx -= 2 * dot * normalX;
+        eye.vy -= 2 * dot * normalY;
 
-      // Corner Hit jackpot celebration!
-      if (hitWallX && hitWallY && typeof spawnParticle === "function") {
-        for (let k = 0; k < 8; k++) {
-          spawnParticle({
-            x: worldX + eye.x * 2,
-            y: worldY + eye.y * 2,
-            vx: (Math.random() - 0.5) * 55,
-            vy: (Math.random() - 0.5) * 55,
-            color: ["#ffffff", DVD_SCREENSAVER_COLORS[eye.colorIndex], "#fef08a"],
-            size: 2.2,
-            maxLife: 0.55,
-            shrink: true
-          });
+        // Shift color upon ricocheting off the fluid membrane
+        eye.colorIndex = (eye.colorIndex + 1) % DVD_SCREENSAVER_COLORS.length;
+        eye.lastBounceTime = now;
+
+        // Apex/Corner hit particle sparkle celebration!
+        if (Math.abs(normalX) > 0.65 && Math.abs(normalY) > 0.65 && typeof spawnParticle === "function") {
+          for (let k = 0; k < 8; k++) {
+            spawnParticle({
+              x: worldX + eye.x * 2,
+              y: worldY + eye.y * 2,
+              vx: (Math.random() - 0.5) * 55,
+              vy: (Math.random() - 0.5) * 55,
+              color: ["#ffffff", DVD_SCREENSAVER_COLORS[eye.colorIndex], "#fef08a"],
+              size: 2.2,
+              maxLife: 0.55,
+              shrink: true
+            });
+          }
         }
       }
     }
@@ -660,12 +653,12 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const minDist = eyeR * 2.2;
   if (dist < minDist && dist > 0.001) {
     const overlap = (minDist - dist) / 2;
-    const nx = dx / dist;
-    const ny = dy / dist;
-    dvd.left.x -= nx * overlap;
-    dvd.left.y -= ny * overlap;
-    dvd.right.x += nx * overlap;
-    dvd.right.y += ny * overlap;
+    const normX = dx / dist;
+    const normY = dy / dist;
+    dvd.left.x -= normX * overlap;
+    dvd.left.y -= normY * overlap;
+    dvd.right.x += normX * overlap;
+    dvd.right.y += normY * overlap;
 
     const kx = dvd.left.vx;
     const ky = dvd.left.vy;
@@ -689,9 +682,9 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const rightWobbleY = -vy * 2.5 + Math.cos(now * 0.008 + seed + 2.5) * (radius * 0.04) + bounce * radius * 0.22;
 
   const leftEyeX = dvd.left.x + leftWobbleX;
-  const leftEyeY = baseEyeY + dvd.left.y + leftWobbleY;
+  const leftEyeY = dvd.left.y + leftWobbleY;
   const rightEyeX = dvd.right.x + rightWobbleX;
-  const rightEyeY = baseEyeY + dvd.right.y + rightWobbleY;
+  const rightEyeY = dvd.right.y + rightWobbleY;
 
   // Soft Rosy Cheeks via Radial Gradients (following each separated eye)
   const drawCheek = (cx, cy) => {
