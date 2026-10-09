@@ -1,6 +1,10 @@
 // goblins.js - Procedural 8-Directional Segmented Goblin Entity Renderer
 import { computeFastSeed, safeCreateRadialGradient } from './helpers.js';
 
+const MAGE_REGEX = /mage|shaman|occult/i;
+const ARCHER_REGEX = /archer|scout|hunter/i;
+const THIEF_REGEX = /thief|rogue|assassin|dagger/i;
+
 export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   if (!ent) ent = {};
   const type = ent.type || "goblin";

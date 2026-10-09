@@ -1,6 +1,155 @@
 // genericMobs.js - Procedural Generic Mob, Undead, Beast & Boss Renderer
 import { computeFastSeed, safeCreateRadialGradient } from './helpers.js';
 
+const HUMANOID_REGEX = /skeleton|undead|knight|archer|soldier|guard|humanoid/i;
+
+function drawProceduralHumanoidMob(ctx, ent, type, mobClass, mobColor, isElite, isBoss, isShadowPass, nowMs, seed) {
+  const isSkeleton = type.includes("skeleton") || type.includes("undead");
+  const boneColor = isSkeleton ? "#e2e8f0" : mobColor;
+  const darkColor = isSkeleton ? "#475569" : "#0f172a";
+  const glowColor = isElite ? "#fbbf24" : isSkeleton ? "#34d399" : "#38bdf8";
+  const facingAngle = ent.facingAngle || 0;
+  const isMoving = !!(ent.moving || ent.isMoving);
+  const isAttacking = !!(ent.isAttacking || ent.currentCast);
+  const walkPhase = isMoving ? (nowMs * 0.009 + seed) : 0;
+  const legSwing = Math.sin(walkPhase) * 4;
+
+  ctx.save();
+  ctx.rotate(facingAngle * 0.15);
+
+  if (isShadowPass) {
+    ctx.beginPath();
+    ctx.ellipse(0, 16, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  // Legs
+  ctx.fillStyle = isSkeleton ? "#cbd5e1" : darkColor;
+  ctx.fillRect(-6 + legSwing * 0.5, 4, 3.5, 12);
+  ctx.fillRect(2.5 - legSwing * 0.5, 4, 3.5, 12);
+
+  // Feet
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(-7 + legSwing * 0.5, 14, 5, 3);
+  ctx.fillRect(1.5 - legSwing * 0.5, 14, 5, 3);
+
+  // Torso / Ribcage
+  ctx.fillStyle = boneColor;
+  ctx.beginPath();
+  ctx.ellipse(0, -2, 7.5, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (isSkeleton) {
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 1;
+    for (let r = -6; r <= 2; r += 2.5) {
+      ctx.beginPath();
+      ctx.moveTo(-5, r);
+      ctx.lineTo(5, r);
+      ctx.stroke();
+    }
+  } else {
+    ctx.fillStyle = mobColor;
+    ctx.beginPath();
+    ctx.moveTo(-6, -8);
+    ctx.lineTo(6, -8);
+    ctx.lineTo(4, 3);
+    ctx.lineTo(-4, 3);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Arms & Weapons
+  const swing = isAttacking ? Math.sin((nowMs % 300) / 300 * Math.PI) * 8 : 0;
+
+  // Left Arm (Shield or Bow)
+  ctx.save();
+  ctx.translate(-8, -4);
+  ctx.fillStyle = boneColor;
+  ctx.fillRect(-1.5, 0, 3, 8);
+  if (mobClass === "ranger") {
+    ctx.strokeStyle = "#78350f";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 4, 9, -Math.PI * 0.4, Math.PI * 0.4);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = isElite ? "#b45309" : "#334155";
+    ctx.strokeStyle = isElite ? "#fbbf24" : "#64748b";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(-2, 4, 4.5, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Right Arm (Sword)
+  ctx.save();
+  ctx.translate(8, -4 + swing);
+  ctx.fillStyle = boneColor;
+  ctx.fillRect(-1.5, 0, 3, 8);
+  ctx.fillStyle = "#94a3b8";
+  ctx.strokeStyle = "#f8fafc";
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(0, 4);
+  ctx.lineTo(12 + swing, 0 - swing * 1.5);
+  ctx.lineTo(14 + swing, -2 - swing * 1.5);
+  ctx.lineTo(2, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#d97706";
+  ctx.fillRect(-1, 3, 5, 2);
+  ctx.restore();
+
+  // Head / Skull
+  ctx.save();
+  ctx.translate(0, -12);
+  ctx.fillStyle = isSkeleton ? "#f1f5f9" : "#475569";
+  ctx.strokeStyle = isSkeleton ? "#94a3b8" : "#1e293b";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(0, 0, 6.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  if (!isSkeleton || isElite) {
+    ctx.fillStyle = "#334155";
+    ctx.beginPath();
+    ctx.arc(0, -1.5, 7, Math.PI, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = isElite ? "#f59e0b" : "#dc2626";
+    ctx.fillRect(-1.5, -9, 3, 4);
+  }
+
+  // Eye Sockets
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.arc(-2.5, 0, 1.6, 0, Math.PI * 2);
+  ctx.arc(2.5, 0, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = glowColor;
+  ctx.beginPath();
+  ctx.arc(-2.5, 0, 0.8, 0, Math.PI * 2);
+  ctx.arc(2.5, 0, 0.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (isSkeleton) {
+    ctx.fillStyle = "#64748b";
+    ctx.fillRect(-2, 3.5, 4, 1.2);
+  }
+  ctx.restore();
+
+  ctx.restore();
+}
+
 export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
   const type = ent.type || "monster";
   if (ent._seed === undefined) {
@@ -458,7 +607,7 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
       ctx.fill();
       ctx.restore();
     }
-  } else if (type.includes("weaver")) {
+  } else if (type.includes("weaver") || type.includes("spider")) {
     const r = 30;
     const walkPhase = isMoving ? (nowMs * 0.01 + seed) : (nowMs * 0.002 + seed);
     const breathe = Math.sin(nowMs * 0.004 + seed) * 1.5;
@@ -1039,15 +1188,29 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
       ctx.restore();
     }
 
-    drawSegmentedCharacter(ctx, 0, 0, {
-      playerClass: mobClass,
-      bodyColor: mobColor,
-      facingAngle: ent.facingAngle || 0,
-      moving: !!ent.isMoving,
-      isAttacking: !!ent.currentCast,
-      entityId: ent.id || "mob_" + Math.random(),
-      scale: isBoss ? 1.3 : (isElite ? 1.15 : 1.0),
-    });
+    if (typeof drawSegmentedCharacter === "function") {
+      drawSegmentedCharacter(ctx, 0, 0, {
+        playerClass: mobClass,
+        bodyColor: mobColor,
+        facingAngle: ent.facingAngle || 0,
+        moving: !!ent.isMoving,
+        isAttacking: !!ent.currentCast,
+        entityId: ent.id || "mob_" + Math.random(),
+        scale: isBoss ? 1.3 : (isElite ? 1.15 : 1.0),
+      });
+    } else if (typeof window !== "undefined" && typeof window.drawSegmentedCharacter === "function") {
+      window.drawSegmentedCharacter(ctx, 0, 0, {
+        playerClass: mobClass,
+        bodyColor: mobColor,
+        facingAngle: ent.facingAngle || 0,
+        moving: !!ent.isMoving,
+        isAttacking: !!ent.currentCast,
+        entityId: ent.id || "mob_" + Math.random(),
+        scale: isBoss ? 1.3 : (isElite ? 1.15 : 1.0),
+      });
+    } else {
+      drawProceduralHumanoidMob(ctx, ent, type, mobClass, mobColor, isElite, isBoss, isShadowPass, nowMs, seed);
+    }
   } else {
     let hash = 0;
     for (let i = 0; i < type.length; i++)
@@ -1080,7 +1243,7 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
 
   if (isBoss) {
     ctx.save();
-    ctx.translate(0, -shadowRadius * 0.95);
+    ctx.translate(0, -auraRadius * 0.95);
     ctx.fillStyle = "#f1c40f";
     ctx.strokeStyle = "#d68910";
     ctx.lineWidth = 2;

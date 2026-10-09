@@ -44,7 +44,7 @@ export function getMobUiOffsets(ent) {
 }
 
 export function drawEntityHP(ctx, ent, screenX, screenY, offset = 28) {
-  if (!window.shouldShowMobHpBar(ent)) return;
+  if (typeof window !== "undefined" && typeof window.shouldShowMobHpBar === "function" && !window.shouldShowMobHpBar(ent)) return;
   if (ent.maxHp) {
     if (ent.displayHp === undefined) ent.displayHp = ent.hp;
     // Smooth interpolator for health bar changes (reduces jumpiness)
@@ -82,10 +82,12 @@ export function drawEntityHP(ctx, ent, screenX, screenY, offset = 28) {
     ctx.lineWidth = 1;
     ctx.strokeRect(barX - 0.5, barY - 0.5, barW + 1, barH + 1);
 
-    if (ent.type === "player" && ent.id === GameState.myId) {
+    const myId = (typeof GameState !== "undefined" && GameState) ? GameState.myId : (typeof window !== "undefined" && window.GameState ? window.GameState.myId : null);
+
+    if (ent.type === "player" && myId && ent.id === myId) {
       ctx.fillStyle = hpPercent < 0.25 ? "#e67e22" : "#2ecc71";
     } else if (ent.isPet) {
-      ctx.fillStyle = ent.ownerId === GameState.myId ? "#3498db" : "#2980b9";
+      ctx.fillStyle = (myId && ent.ownerId === myId) ? "#3498db" : "#2980b9";
     } else {
       ctx.fillStyle = hpPercent < 0.3 ? "#c0392b" : "#e74c3c";
     }
@@ -129,7 +131,7 @@ export function drawEntityHP(ctx, ent, screenX, screenY, offset = 28) {
     }
 
     // Local player Dodge / Stamina Micro-Bar (Minimalist HUD)
-    if (ent.type === "player" && ent.id === GameState.myId) {
+    if (ent.type === "player" && myId && ent.id === myId) {
       const nowMs = Date.now();
       const dodgeCd = window.localDodgeCooldownAt || 0;
       const isDodgeOnCd = dodgeCd > nowMs;
@@ -157,7 +159,7 @@ export function drawEntityHP(ctx, ent, screenX, screenY, offset = 28) {
       }
     }
 
-    if (ent.class === "assassin" && ent.id === GameState.myId) {
+    if (ent.class === "assassin" && myId && ent.id === myId) {
       const maxCombo = 5;
       const combo = ent.comboPoints || 0;
       const dotRadius = 1.5;

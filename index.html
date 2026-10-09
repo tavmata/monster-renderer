@@ -342,7 +342,28 @@
       triggerWolfDeathLimbExplosion
     } from './src/index.js';
 
+    window.GameState = window.GameState || { combatAnimations: [], myId: "preview_mob" };
     window.shouldShowMobHpBar = () => document.getElementById('chkHpBar').checked;
+
+    // Canvas particle system for limb explosions and VFX
+    const particles = [];
+    window.spawnParticle = (p) => {
+      particles.push({
+        x: p.x,
+        y: p.y,
+        vx: p.vx || 0,
+        vy: p.vy || 0,
+        color: Array.isArray(p.color) ? p.color[Math.floor(Math.random() * p.color.length)] : (p.color || '#fff'),
+        size: p.size || 3,
+        life: 0,
+        maxLife: p.maxLife || 1.0,
+        gravity: p.gravity || 0,
+        drag: p.drag || 0.98,
+        shrink: !!p.shrink,
+        style: p.style || 'circle',
+        accentColor: p.accentColor
+      });
+    };
 
     const VARIANTS = {
       slime: [
@@ -442,8 +463,8 @@
         type: state.type,
         hp: 0,
         maxHp: 100,
-        x: canvas.width / 2,
-        y: canvas.height / 2
+        x: 0,
+        y: 0
       };
       triggerWolfDeathLimbExplosion(dummyCe);
     };
@@ -469,6 +490,9 @@
     let fpsTime = lastTime;
 
     function renderLoop(now) {
+      const dt = Math.min(0.1, (now - lastTime) / 1000);
+      lastTime = now;
+
       frameCount++;
       if (now - fpsTime >= 500) {
         const fps = Math.round((frameCount * 1000) / (now - fpsTime));
@@ -499,7 +523,14 @@
         isMoving: isMoving,
         isSlowed: isSlowed,
         isAttacking: state.isAttacking,
-        currentCast: state.isAttacking ? { progress: 0.5 } : null,
+        lastHitTime: state.flashTime,
+        attackStart: state.attackTime,
+        lastAttackTime: state.attackTime,
+        currentCast: state.isAttacking ? {
+          progress: Math.min(1, (now - state.attackTime) / 500),
+          duration: 500,
+          startTime: state.attackTime
+        } : null,
         _seed: state.seed
       };
 
@@ -510,12 +541,55 @@
       ctx.translate(cx, cy);
       ctx.scale(state.scale, state.scale);
 
-      // Draw Monster
-      drawMonster(ctx, 0, 0, ent);
+      try {
+        // Draw Monster
+        drawMonster(ctx, 0, 0, ent);
 
-      // Draw HP Bar
-      if (showHp) {
-        drawEntityHP(ctx, ent, 0, 0);
+        // Draw HP Bar
+        if (showHp) {
+          drawEntityHP(ctx, ent, 0, 0);
+        }
+
+        // Update and draw particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.life += dt;
+          if (p.life >= p.maxLife) {
+            particles.splice(i, 1);
+            continue;
+          }
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vy += p.gravity * dt;
+          p.vx *= Math.pow(p.drag, dt * 60);
+          p.vy *= Math.pow(p.drag, dt * 60);
+
+          const progress = p.life / p.maxLife;
+          const alpha = Math.max(0, 1 - progress);
+          const currentSize = p.shrink ? p.size * (1 - progress) : p.size;
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = p.color;
+          if (p.style === "wolf_leg" || p.style === "wolf_tail" || p.style === "wolf_head") {
+            ctx.beginPath();
+            ctx.ellipse(p.x, p.y, currentSize, currentSize * 0.6, p.life * 5, 0, Math.PI * 2);
+            ctx.fill();
+            if (p.accentColor) {
+              ctx.fillStyle = p.accentColor;
+              ctx.beginPath();
+              ctx.ellipse(p.x, p.y, currentSize * 0.5, currentSize * 0.3, p.life * 5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          } else {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, Math.max(0.5, currentSize), 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      } catch (err) {
+        console.error("Renderer error:", err);
       }
 
       ctx.restore();

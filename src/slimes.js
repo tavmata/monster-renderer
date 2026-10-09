@@ -31,8 +31,8 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const isMoving = ent.moving || (Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1);
 
   // Attack & Hit states
-  let isAttacking = false;
-  if (typeof GameState.combatAnimations !== "undefined") {
+  let isAttacking = !!ent.isAttacking;
+  if (typeof GameState !== "undefined" && GameState && typeof GameState.combatAnimations !== "undefined") {
     for (let i = 0; i < GameState.combatAnimations.length; i++) {
       const anim = GameState.combatAnimations[i];
       if (anim.attackerId === ent.id && now - anim.createdAt < 450) {
