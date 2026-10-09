@@ -566,22 +566,26 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const baseSpeed = Math.max(24, Math.round(radius * 1.5));
 
   if (!dvd || dvd.slimeRadius !== radius) {
-    // Each eye starts in separate quadrants with 45-degree diagonal velocities
+    // Each eye starts with unique randomized angle and offset
+    const ang1 = 0.55 + ((seed * 17) % 100) / 100 * 0.8;
+    const ang2 = Math.PI + 0.4 + (((seed + 7) * 23) % 100) / 100 * 0.8;
     dvd = {
       slimeRadius: radius,
       left: {
         x: -radius * 0.45,
-        y: -radius * 0.30,
-        vx: baseSpeed,
-        vy: baseSpeed,
+        y: -radius * 0.25,
+        vx: Math.cos(ang1) * baseSpeed,
+        vy: Math.sin(ang1) * baseSpeed,
+        seedOffset: (seed % 50) + 1.5,
         colorIndex: seed % DVD_SCREENSAVER_COLORS.length,
         lastBounceTime: now
       },
       right: {
         x: radius * 0.45,
-        y: radius * 0.25,
-        vx: -baseSpeed,
-        vy: -baseSpeed,
+        y: radius * 0.20,
+        vx: Math.cos(ang2) * baseSpeed,
+        vy: Math.sin(ang2) * baseSpeed,
+        seedOffset: ((seed + 13) % 50) + 7.8,
         colorIndex: (seed + 3) % DVD_SCREENSAVER_COLORS.length,
         lastBounceTime: now
       },
@@ -594,13 +598,13 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const dt = Math.min(0.06, Math.max(0.001, (now - dvd.lastTime) / 1000));
   dvd.lastTime = now;
 
-  // Update and ricochet each eye separately across the entire organic slime body
+  // Update and ricochet each eye separately across the entire organic slime body with randomized angles
   const updateSingleEye = (eye) => {
-    // Maintain constant DVD screensaver speed and true 45-degree diagonal trajectory
-    const dirX = eye.vx >= 0 ? 1 : -1;
-    const dirY = eye.vy >= 0 ? 1 : -1;
-    eye.vx = dirX * baseSpeed;
-    eye.vy = dirY * baseSpeed;
+    // Gentle fluid wandering so trajectory is organic and not locked to a single rigid slope
+    const driftAngle = (Math.sin(now * 0.0022 + eye.seedOffset) + Math.cos(now * 0.0017 + eye.seedOffset * 1.8)) * 0.015;
+    let curVAng = Math.atan2(eye.vy, eye.vx) + driftAngle;
+    eye.vx = Math.cos(curVAng) * baseSpeed;
+    eye.vy = Math.sin(curVAng) * baseSpeed;
 
     eye.x += eye.vx * dt;
     eye.y += eye.vy * dt;
@@ -624,54 +628,48 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
       eye.x = nx * (maxAllowedR * 0.985);
       eye.y = ny * (maxAllowedR * 0.985);
 
-      let isCorner = false;
-      let bounced = false;
+      const dot = eye.vx * nx + eye.vy * ny;
+      if (dot > 0) {
+        // Specular reflection with random angular dispersion
+        let rx = eye.vx - 2 * dot * nx;
+        let ry = eye.vy - 2 * dot * ny;
+        let refAngle = Math.atan2(ry, rx);
 
-      // DVD screensaver ricochet logic (45-degree angle reflection on wall hits)
-      if (Math.abs(nx) > Math.abs(ny) * 1.25) {
-        // Vertical side wall hit (left or right edge)
-        if (eye.vx * nx > 0) {
-          eye.vx = -eye.vx;
-          bounced = true;
+        // Add random angular jitter (+/- 25 degrees) to avoid closed repetitive orbits
+        const randJitter = (Math.random() - 0.5) * 0.9;
+        refAngle += randJitter;
+
+        // Ensure reflected velocity continues pointing inward away from the membrane
+        const inwardNormalAngle = Math.atan2(-ny, -nx);
+        let angleDiff = refAngle - inwardNormalAngle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        if (Math.abs(angleDiff) > Math.PI * 0.45) {
+          refAngle = inwardNormalAngle + (Math.random() - 0.5) * 0.8;
         }
-      } else if (Math.abs(ny) > Math.abs(nx) * 1.25) {
-        // Horizontal wall hit (top dome or bottom base)
-        if (eye.vy * ny > 0) {
-          eye.vy = -eye.vy;
-          bounced = true;
-        }
-      } else {
-        // Corner / shoulder hit
-        if (eye.vx * nx > 0) eye.vx = -eye.vx;
-        if (eye.vy * ny > 0) eye.vy = -eye.vy;
-        bounced = true;
-        isCorner = true;
-      }
 
-      // Guarantee direction reversal if still pointing outward
-      if (!bounced) {
-        if (eye.vx * nx > 0) eye.vx = -eye.vx;
-        if (eye.vy * ny > 0) eye.vy = -eye.vy;
-        bounced = true;
-      }
+        eye.vx = Math.cos(refAngle) * baseSpeed;
+        eye.vy = Math.sin(refAngle) * baseSpeed;
 
-      // Shift to the next bright DVD screensaver color on each bounce
-      eye.colorIndex = (eye.colorIndex + 1) % DVD_SCREENSAVER_COLORS.length;
-      eye.lastBounceTime = now;
+        // Shift to the next bright DVD screensaver color on each bounce
+        eye.colorIndex = (eye.colorIndex + 1) % DVD_SCREENSAVER_COLORS.length;
+        eye.lastBounceTime = now;
 
-      // Corner hit sparkle particle celebration
-      if (isCorner && typeof spawnParticle === "function") {
-        for (let k = 0; k < 6; k++) {
-          spawnParticle({
-            x: worldX + eye.x * 2,
-            y: worldY + eye.y * 2,
-            vx: (Math.random() - 0.5) * 45,
-            vy: (Math.random() - 0.5) * 45,
-            color: ["#ffffff", DVD_SCREENSAVER_COLORS[eye.colorIndex], "#fef08a"],
-            size: 2.2,
-            maxLife: 0.45,
-            shrink: true
-          });
+        // Corner / apex hit sparkle particle celebration
+        const isCorner = Math.abs(nx) > 0.55 && Math.abs(ny) > 0.55;
+        if (isCorner && typeof spawnParticle === "function") {
+          for (let k = 0; k < 6; k++) {
+            spawnParticle({
+              x: worldX + eye.x * 2,
+              y: worldY + eye.y * 2,
+              vx: (Math.random() - 0.5) * 45,
+              vy: (Math.random() - 0.5) * 45,
+              color: ["#ffffff", DVD_SCREENSAVER_COLORS[eye.colorIndex], "#fef08a"],
+              size: 2.2,
+              maxLife: 0.45,
+              shrink: true
+            });
+          }
         }
       }
     }
