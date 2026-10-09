@@ -1,6 +1,20 @@
 // slimes.js - Procedural Organic Slime Entity Renderer with Volumetric Gradients
 import { computeFastSeed } from './helpers.js';
 
+// Classic DVD Screensaver color palette: shifts to a new vibrant hue on each wall ricochet
+const DVD_SCREENSAVER_COLORS = [
+  "#38bdf8", // Electric Cyan
+  "#f43f5e", // Crimson Rose
+  "#a855f7", // Neon Purple
+  "#22c55e", // Bright Emerald
+  "#eab308", // Golden Topaz
+  "#ec4899", // Hot Magenta
+  "#06b6d4", // Deep Cyan
+  "#f97316"  // Radiant Orange
+];
+
+const _dvdEyeMap = new Map();
+
 /**
  * Returns color palettes tailored for each slime archetype and state.
  * Emphasizes rich multi-stop volumetric gradients with zero harsh static lines.
@@ -543,27 +557,112 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   }
   ctx.restore();
 
-  // 10. Suspended Wobbling Internal Eyes & Cheeks (Zero Mouth, Floating Fluid Parallax)
+  // 10. DVD Screensaver Bouncing Eyes Mechanics (45-Degree Diagonal Glide, Wall Ricochet, Color Shifts)
   const isBlinking = (now + seed * 10) % 4200 < 160;
   const eyeSpacing = radius * 0.28;
   const baseEyeY = -radius * 0.06;
   const eyeR = radius * 0.18;
 
+  const entKey = ent.id || "preview_mob";
+  let dvd = _dvdEyeMap.get(entKey);
+  if (!dvd) {
+    // Initial 45-degree diagonal trajectory with seed variation
+    const baseSpeed = Math.max(7.5, radius * 0.42); // pixels/sec
+    const dirX = (seed % 2 === 0) ? 1 : -1;
+    const dirY = (Math.floor(seed / 3) % 2 === 0) ? 1 : -1;
+    dvd = {
+      x: (seed % 7) - 3,
+      y: (seed % 5) - 2,
+      vx: dirX * baseSpeed,
+      vy: dirY * baseSpeed * 0.9,
+      lastTime: now,
+      colorIndex: seed % DVD_SCREENSAVER_COLORS.length,
+      lastBounceTime: now
+    };
+    _dvdEyeMap.set(entKey, dvd);
+  }
+
+  // Smooth frame delta calculation
+  const dt = Math.min(0.08, Math.max(0.001, (now - dvd.lastTime) / 1000));
+  dvd.lastTime = now;
+
+  // Bounding boundaries within internal jelly volume
+  const boundX = radius * 0.36;
+  const boundY = radius * 0.24;
+
+  dvd.x += dvd.vx * dt;
+  dvd.y += dvd.vy * dt;
+
+  let hitWallX = false;
+  let hitWallY = false;
+
+  // Horizontal wall bounce
+  if (dvd.x >= boundX) {
+    dvd.x = boundX;
+    dvd.vx = -Math.abs(dvd.vx);
+    hitWallX = true;
+  } else if (dvd.x <= -boundX) {
+    dvd.x = -boundX;
+    dvd.vx = Math.abs(dvd.vx);
+    hitWallX = true;
+  }
+
+  // Vertical wall bounce
+  if (dvd.y >= boundY) {
+    dvd.y = boundY;
+    dvd.vy = -Math.abs(dvd.vy);
+    hitWallY = true;
+  } else if (dvd.y <= -boundY) {
+    dvd.y = -boundY;
+    dvd.vy = Math.abs(dvd.vy);
+    hitWallY = true;
+  }
+
+  // Classic DVD Screensaver color shift upon hitting any border
+  if (hitWallX || hitWallY) {
+    dvd.colorIndex = (dvd.colorIndex + 1) % DVD_SCREENSAVER_COLORS.length;
+    dvd.lastBounceTime = now;
+
+    // Corner Hit jackpot celebration!
+    if (hitWallX && hitWallY) {
+      if (typeof spawnParticle === "function") {
+        for (let k = 0; k < 10; k++) {
+          spawnParticle({
+            x: worldX + dvd.x * 2,
+            y: worldY + dvd.y * 2,
+            vx: (Math.random() - 0.5) * 60,
+            vy: (Math.random() - 0.5) * 60,
+            color: ["#ffffff", DVD_SCREENSAVER_COLORS[dvd.colorIndex], "#fef08a"],
+            size: 2.5,
+            maxLife: 0.6,
+            shrink: true
+          });
+        }
+      }
+    }
+  }
+
+  const currentDvdColor = DVD_SCREENSAVER_COLORS[dvd.colorIndex];
+
   // Fluid inertia wobble: eyes float and jiggle with liquid lag inside the jelly volume
   const eyeWobblePhase = now * 0.007 + seed;
-  const eyeWobbleX = -vx * 3.6 + Math.sin(eyeWobblePhase) * (radius * 0.08);
-  const eyeWobbleY = -vy * 3.6 + Math.cos(eyeWobblePhase * 1.25) * (radius * 0.10) + bounce * radius * 0.26;
+  const jiggleWobbleX = -vx * 2.5 + Math.sin(eyeWobblePhase) * (radius * 0.04);
+  const jiggleWobbleY = -vy * 2.5 + Math.cos(eyeWobblePhase * 1.25) * (radius * 0.05) + bounce * radius * 0.22;
+
+  // Center position governed by the DVD bounce with organic liquid jiggle
+  const eyeCenterX = dvd.x + jiggleWobbleX;
+  const eyeCenterY = baseEyeY + dvd.y + jiggleWobbleY;
 
   // Subtle asynchronous elastic lag between the two floating eyes
-  const leftEyeLagY = Math.sin(now * 0.009 + seed) * (radius * 0.025);
-  const rightEyeLagY = Math.cos(now * 0.009 + seed) * (radius * 0.025);
+  const leftEyeLagY = Math.sin(now * 0.009 + seed) * (radius * 0.02);
+  const rightEyeLagY = Math.cos(now * 0.009 + seed) * (radius * 0.02);
 
-  const leftEyeX = -eyeSpacing + eyeWobbleX;
-  const leftEyeY = baseEyeY + eyeWobbleY + leftEyeLagY;
-  const rightEyeX = eyeSpacing + eyeWobbleX;
-  const rightEyeY = baseEyeY + eyeWobbleY + rightEyeLagY;
+  const leftEyeX = eyeCenterX - eyeSpacing;
+  const leftEyeY = eyeCenterY + leftEyeLagY;
+  const rightEyeX = eyeCenterX + eyeSpacing;
+  const rightEyeY = eyeCenterY + rightEyeLagY;
 
-  // Soft Rosy Cheeks via Radial Gradients
+  // Soft Rosy Cheeks via Radial Gradients (following the bouncing eyes)
   const drawCheek = (cx, cy) => {
     const chkGrd = ctx.createRadialGradient(cx, cy, 0, cx, cy, eyeR * 1.3);
     chkGrd.addColorStop(0, pal.cheekColor);
@@ -582,7 +681,7 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
     const drawClosedEye = (cx, cy) => {
       const lidGrd = ctx.createLinearGradient(cx - eyeR, cy, cx + eyeR, cy);
       lidGrd.addColorStop(0, "rgba(0, 0, 0, 0.2)");
-      lidGrd.addColorStop(0.5, pal.pupilColor);
+      lidGrd.addColorStop(0.5, currentDvdColor);
       lidGrd.addColorStop(1, "rgba(0, 0, 0, 0.2)");
       ctx.fillStyle = lidGrd;
       ctx.beginPath();
@@ -592,7 +691,7 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
     drawClosedEye(leftEyeX, leftEyeY);
     drawClosedEye(rightEyeX, rightEyeY);
   } else {
-    // Volumetric Spherical Eyeballs with Gradient Depth
+    // Volumetric Spherical Eyeballs with Gradient Depth & DVD Color Shifts
     const drawEye = (ex, ey, pOffX, pOffY) => {
       // Liquid Eye Socket Ambient Shadow
       const sckGrd = ctx.createRadialGradient(ex, ey, eyeR * 0.4, ex, ey, eyeR * 1.25);
@@ -603,13 +702,13 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.arc(ex, ey, eyeR * 1.25, 0, Math.PI * 2);
       ctx.fill();
 
-      // Cornea / Sclera Spherical Radial Gradient
+      // Cornea / Sclera Spherical Radial Gradient tinted with DVD bouncing hue
       const sclGrd = ctx.createRadialGradient(
         ex - eyeR * 0.3, ey - eyeR * 0.3, 0.2,
         ex, ey, eyeR
       );
       sclGrd.addColorStop(0, "#ffffff");
-      sclGrd.addColorStop(0.65, pal.eyeGlow);
+      sclGrd.addColorStop(0.65, currentDvdColor);
       sclGrd.addColorStop(1, pal.fresnel);
 
       ctx.fillStyle = sclGrd;
@@ -644,17 +743,17 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.fill();
     };
 
-    const pOffX = Math.max(-1.5, Math.min(1.5, vx * 1.5));
-    const pOffY = Math.max(-1.5, Math.min(1.5, vy * 1.5));
+    const pOffX = Math.max(-1.5, Math.min(1.5, vx * 1.5 + dvd.vx * 0.1));
+    const pOffY = Math.max(-1.5, Math.min(1.5, vy * 1.5 + dvd.vy * 0.1));
     drawEye(leftEyeX, leftEyeY, pOffX, pOffY);
     drawEye(rightEyeX, rightEyeY, pOffX, pOffY);
 
     if (isAttacking || isHit) {
       // Soft Liquid Furrow Crease above eyes (Gradient-based instead of harsh line)
       const browGrd = ctx.createLinearGradient(leftEyeX, leftEyeY - eyeR, rightEyeX, rightEyeY - eyeR);
-      browGrd.addColorStop(0, pal.pupilColor);
+      browGrd.addColorStop(0, currentDvdColor);
       browGrd.addColorStop(0.5, "rgba(0, 0, 0, 0.15)");
-      browGrd.addColorStop(1, pal.pupilColor);
+      browGrd.addColorStop(1, currentDvdColor);
       ctx.fillStyle = browGrd;
       ctx.beginPath();
       ctx.ellipse(leftEyeX, leftEyeY - eyeR * 0.9, eyeR * 0.8, 1.2, -0.2, 0, Math.PI * 2);
