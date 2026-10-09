@@ -543,47 +543,25 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   }
   ctx.restore();
 
-  // 10. Multi-Lobe Liquid Specular Highlights & Glare (Feathered Radial Gradients)
-  // Primary Liquid Glare (Top-Left)
-  const specX = -radius * 0.36;
-  const specY = -radius * 0.40;
-  const specRx = radius * 0.36;
-  const specRy = radius * 0.20;
-
-  const specGrd = ctx.createRadialGradient(specX, specY, 0, specX, specY, specRx);
-  specGrd.addColorStop(0, pal.highlight);
-  specGrd.addColorStop(0.45, "rgba(255, 255, 255, 0.4)");
-  specGrd.addColorStop(1, "rgba(255, 255, 255, 0)");
-  ctx.fillStyle = specGrd;
-  ctx.beginPath();
-  ctx.ellipse(specX, specY, specRx, specRy, Math.PI / 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Sun Reflection Micro-Catchlight Glint
-  const glintGrd = ctx.createRadialGradient(-radius * 0.22, -radius * 0.56, 0, -radius * 0.22, -radius * 0.56, radius * 0.12);
-  glintGrd.addColorStop(0, "#ffffff");
-  glintGrd.addColorStop(0.6, "rgba(255, 255, 255, 0.8)");
-  glintGrd.addColorStop(1, "rgba(255, 255, 255, 0)");
-  ctx.fillStyle = glintGrd;
-  ctx.beginPath();
-  ctx.arc(-radius * 0.22, -radius * 0.56, radius * 0.12, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Secondary Soft Ambient Ground-Bounce Sheen (Bottom-Right)
-  const bncGrd = ctx.createRadialGradient(radius * 0.35, radius * 0.34, 0, radius * 0.35, radius * 0.34, radius * 0.3);
-  bncGrd.addColorStop(0, "rgba(255, 255, 255, 0.28)");
-  bncGrd.addColorStop(0.65, "rgba(255, 255, 255, 0.08)");
-  bncGrd.addColorStop(1, "rgba(255, 255, 255, 0)");
-  ctx.fillStyle = bncGrd;
-  ctx.beginPath();
-  ctx.arc(radius * 0.35, radius * 0.34, radius * 0.3, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 11. Expressive Lineless Eyes & Organic Face
+  // 10. Suspended Wobbling Internal Eyes & Cheeks (Zero Mouth, Floating Fluid Parallax)
   const isBlinking = (now + seed * 10) % 4200 < 160;
   const eyeSpacing = radius * 0.28;
-  const eyeY = -radius * 0.06;
+  const baseEyeY = -radius * 0.06;
   const eyeR = radius * 0.18;
+
+  // Fluid inertia wobble: eyes float and jiggle with liquid lag inside the jelly volume
+  const eyeWobblePhase = now * 0.007 + seed;
+  const eyeWobbleX = -vx * 3.6 + Math.sin(eyeWobblePhase) * (radius * 0.08);
+  const eyeWobbleY = -vy * 3.6 + Math.cos(eyeWobblePhase * 1.25) * (radius * 0.10) + bounce * radius * 0.26;
+
+  // Subtle asynchronous elastic lag between the two floating eyes
+  const leftEyeLagY = Math.sin(now * 0.009 + seed) * (radius * 0.025);
+  const rightEyeLagY = Math.cos(now * 0.009 + seed) * (radius * 0.025);
+
+  const leftEyeX = -eyeSpacing + eyeWobbleX;
+  const leftEyeY = baseEyeY + eyeWobbleY + leftEyeLagY;
+  const rightEyeX = eyeSpacing + eyeWobbleX;
+  const rightEyeY = baseEyeY + eyeWobbleY + rightEyeLagY;
 
   // Soft Rosy Cheeks via Radial Gradients
   const drawCheek = (cx, cy) => {
@@ -596,8 +574,8 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
     ctx.ellipse(cx, cy, eyeR * 1.3, eyeR * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
   };
-  drawCheek(-eyeSpacing - eyeR * 0.9, eyeY + eyeR * 1.3);
-  drawCheek(eyeSpacing + eyeR * 0.9, eyeY + eyeR * 1.3);
+  drawCheek(leftEyeX - eyeR * 0.9, leftEyeY + eyeR * 1.3);
+  drawCheek(rightEyeX + eyeR * 0.9, rightEyeY + eyeR * 1.3);
 
   if (isBlinking || hpRatio < 0.25) {
     // Soft Lineless Closed Eyelid Creases (Deep Liquid Folds)
@@ -611,8 +589,8 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.ellipse(cx, cy, eyeR, 1.4, 0, 0, Math.PI * 2);
       ctx.fill();
     };
-    drawClosedEye(-eyeSpacing, eyeY);
-    drawClosedEye(eyeSpacing, eyeY);
+    drawClosedEye(leftEyeX, leftEyeY);
+    drawClosedEye(rightEyeX, rightEyeY);
   } else {
     // Volumetric Spherical Eyeballs with Gradient Depth
     const drawEye = (ex, ey, pOffX, pOffY) => {
@@ -668,46 +646,57 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
 
     const pOffX = Math.max(-1.5, Math.min(1.5, vx * 1.5));
     const pOffY = Math.max(-1.5, Math.min(1.5, vy * 1.5));
-    drawEye(-eyeSpacing, eyeY, pOffX, pOffY);
-    drawEye(eyeSpacing, eyeY, pOffX, pOffY);
+    drawEye(leftEyeX, leftEyeY, pOffX, pOffY);
+    drawEye(rightEyeX, rightEyeY, pOffX, pOffY);
 
     if (isAttacking || isHit) {
       // Soft Liquid Furrow Crease above eyes (Gradient-based instead of harsh line)
-      const browGrd = ctx.createLinearGradient(-eyeSpacing, eyeY - eyeR, eyeSpacing, eyeY - eyeR);
+      const browGrd = ctx.createLinearGradient(leftEyeX, leftEyeY - eyeR, rightEyeX, rightEyeY - eyeR);
       browGrd.addColorStop(0, pal.pupilColor);
       browGrd.addColorStop(0.5, "rgba(0, 0, 0, 0.15)");
       browGrd.addColorStop(1, pal.pupilColor);
       ctx.fillStyle = browGrd;
       ctx.beginPath();
-      ctx.ellipse(-eyeSpacing, eyeY - eyeR * 0.9, eyeR * 0.8, 1.2, -0.2, 0, Math.PI * 2);
-      ctx.ellipse(eyeSpacing, eyeY - eyeR * 0.9, eyeR * 0.8, 1.2, 0.2, 0, Math.PI * 2);
+      ctx.ellipse(leftEyeX, leftEyeY - eyeR * 0.9, eyeR * 0.8, 1.2, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(rightEyeX, rightEyeY - eyeR * 0.9, eyeR * 0.8, 1.2, 0.2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  // 12. Lineless Organic Liquid Mouth Indentation
-  const mY = radius * 0.12;
-  const mW = isAttacking ? radius * 0.24 : radius * 0.18;
-  const mH = isAttacking ? radius * 0.22 : radius * 0.12;
+  // 11. Multi-Lobe Liquid Specular Surface Sheen & Glare (Translucent Glass Dome Over Eyes)
+  // Primary Liquid Glare (Top-Left)
+  const specX = -radius * 0.36;
+  const specY = -radius * 0.40;
+  const specRx = radius * 0.36;
+  const specRy = radius * 0.20;
 
-  const mouthGrd = ctx.createRadialGradient(0, mY, 0, 0, mY, mW);
-  mouthGrd.addColorStop(0, pal.pupilColor);
-  mouthGrd.addColorStop(0.65, pal.bodyBack[0]);
-  mouthGrd.addColorStop(1, "rgba(0, 0, 0, 0)");
-
-  ctx.fillStyle = mouthGrd;
+  const specGrd = ctx.createRadialGradient(specX, specY, 0, specX, specY, specRx);
+  specGrd.addColorStop(0, pal.highlight);
+  specGrd.addColorStop(0.45, "rgba(255, 255, 255, 0.4)");
+  specGrd.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = specGrd;
   ctx.beginPath();
-  ctx.ellipse(0, mY, mW, mH, 0, 0, Math.PI * 2);
+  ctx.ellipse(specX, specY, specRx, specRy, Math.PI / 4, 0, Math.PI * 2);
   ctx.fill();
 
-  // Bottom lip soft liquid specular highlight
-  const lipGrd = ctx.createLinearGradient(-mW * 0.7, mY + mH * 0.8, mW * 0.7, mY + mH * 0.8);
-  lipGrd.addColorStop(0, "rgba(255, 255, 255, 0)");
-  lipGrd.addColorStop(0.5, "rgba(255, 255, 255, 0.45)");
-  lipGrd.addColorStop(1, "rgba(255, 255, 255, 0)");
-  ctx.fillStyle = lipGrd;
+  // Sun Reflection Micro-Catchlight Glint
+  const glintGrd = ctx.createRadialGradient(-radius * 0.22, -radius * 0.56, 0, -radius * 0.22, -radius * 0.56, radius * 0.12);
+  glintGrd.addColorStop(0, "#ffffff");
+  glintGrd.addColorStop(0.6, "rgba(255, 255, 255, 0.8)");
+  glintGrd.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = glintGrd;
   ctx.beginPath();
-  ctx.ellipse(0, mY + mH * 0.7, mW * 0.65, 0.9, 0, 0, Math.PI * 2);
+  ctx.arc(-radius * 0.22, -radius * 0.56, radius * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Secondary Soft Ambient Ground-Bounce Sheen (Bottom-Right)
+  const bncGrd = ctx.createRadialGradient(radius * 0.35, radius * 0.34, 0, radius * 0.35, radius * 0.34, radius * 0.3);
+  bncGrd.addColorStop(0, "rgba(255, 255, 255, 0.28)");
+  bncGrd.addColorStop(0.65, "rgba(255, 255, 255, 0.08)");
+  bncGrd.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = bncGrd;
+  ctx.beginPath();
+  ctx.arc(radius * 0.35, radius * 0.34, radius * 0.3, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore(); // Scale & Translate
