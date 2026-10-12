@@ -14,6 +14,151 @@ const DVD_SCREENSAVER_COLORS = [
 ];
 
 const _dvdEyeMap = new Map();
+const _slimePuddleMap = new Map();
+const _slimeRippleMap = new Map();
+
+/**
+ * Renders an organic translucent slime footprint puddle with sub-surface radial gradient
+ * and glassy specular curved sheen.
+ */
+function drawFluidPuddle(ctx, p, now) {
+  const age = now - p.createdAt;
+  if (age >= p.duration) return;
+  const progress = age / p.duration;
+  const alpha = Math.pow(Math.max(0, 1 - progress), 1.35);
+  const curRx = p.rx * (1 - progress * 0.15);
+  const curRy = p.ry * (1 - progress * 0.15);
+
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.scale(1, 0.38);
+  ctx.rotate(p.angle);
+
+  // Soft ambient ground glow halo
+  const rimGrd = ctx.createRadialGradient(0, 0, curRx * 0.25, 0, 0, curRx * 1.25);
+  rimGrd.addColorStop(0, p.glow);
+  rimGrd.addColorStop(0.55, p.glow);
+  rimGrd.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.globalAlpha = alpha * 0.45;
+  ctx.fillStyle = rimGrd;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, curRx * 1.25, curRy * 1.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Organic fluid blob membrane (8-point smoothed spline)
+  ctx.globalAlpha = alpha * 0.82;
+  const bodyGrd = ctx.createRadialGradient(-curRx * 0.2, -curRy * 0.2, 0, 0, 0, curRx);
+  bodyGrd.addColorStop(0, p.colorFront);
+  bodyGrd.addColorStop(0.68, p.colorDeep);
+  bodyGrd.addColorStop(1, "rgba(0, 0, 0, 0.25)");
+  ctx.fillStyle = bodyGrd;
+
+  const n = 8;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const delta = p.shapeDeltas ? p.shapeDeltas[i] : 1;
+    pts.push({
+      x: Math.cos(a) * curRx * delta,
+      y: Math.sin(a) * curRy * delta
+    });
+  }
+  const startMidX = (pts[n - 1].x + pts[0].x) / 2;
+  const startMidY = (pts[n - 1].y + pts[0].y) / 2;
+  ctx.beginPath();
+  ctx.moveTo(startMidX, startMidY);
+  for (let i = 0; i < n; i++) {
+    const next = (i + 1) % n;
+    const midX = (pts[i].x + pts[next].x) / 2;
+    const midY = (pts[i].y + pts[next].y) / 2;
+    ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Glassy specular surface highlight
+  ctx.globalAlpha = alpha * 0.72;
+  const hlGrd = ctx.createRadialGradient(-curRx * 0.32, -curRy * 0.32, 0, -curRx * 0.32, -curRy * 0.32, curRx * 0.42);
+  hlGrd.addColorStop(0, p.specular || "#ffffff");
+  hlGrd.addColorStop(0.45, "rgba(255, 255, 255, 0.38)");
+  hlGrd.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = hlGrd;
+  ctx.beginPath();
+  ctx.ellipse(-curRx * 0.28, -curRy * 0.28, curRx * 0.32, curRy * 0.20, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/**
+ * Renders an expanding lineless radial ground impact shockwave ring on slime landing.
+ */
+function drawFluidRipple(ctx, r, now) {
+  const age = now - r.createdAt;
+  if (age >= r.duration) return;
+  const progress = age / r.duration;
+  const alpha = Math.pow(Math.max(0, 1 - progress), 1.2) * 0.72;
+  const curRadius = r.maxRadius * (0.2 + progress * 0.8);
+
+  ctx.save();
+  ctx.translate(r.x, r.y);
+  ctx.scale(1, 0.34);
+  ctx.globalAlpha = alpha;
+
+  const ringGrd = ctx.createRadialGradient(0, 0, curRadius * 0.62, 0, 0, curRadius);
+  ringGrd.addColorStop(0, "rgba(0, 0, 0, 0)");
+  ringGrd.addColorStop(0.55, r.color);
+  ringGrd.addColorStop(0.85, r.fresnel || "rgba(255, 255, 255, 0.5)");
+  ringGrd.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+  ctx.fillStyle = ringGrd;
+  ctx.beginPath();
+  ctx.arc(0, 0, curRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/**
+ * Draws viscous elastic slime tendrils connecting the ground to the rising slime base
+ * during the initial spring-off phase of the hop.
+ */
+function drawSlimeTendrils(ctx, radius, currentHopY, shadowY, pal) {
+  if (currentHopY >= -0.8 || currentHopY < -radius * 0.45) return;
+  const progress = -currentHopY / (radius * 0.45);
+  const alpha = Math.max(0, 1 - progress) * 0.75;
+  if (alpha <= 0.05) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const offsets = [-radius * 0.28, 0, radius * 0.28];
+  for (let i = 0; i < offsets.length; i++) {
+    const ox = offsets[i];
+    const groundX = ox * 1.12;
+    const groundY = shadowY * 0.34;
+    const bodyX = ox * 0.88;
+    const bodyY = groundY + currentHopY;
+    const midX = (groundX + bodyX) / 2 + (i === 0 ? -1 : i === 2 ? 1 : 0);
+    const midY = (groundY + bodyY) / 2;
+    const thick = Math.max(0.6, (1 - progress) * 2.2);
+
+    const tGrd = ctx.createLinearGradient(groundX, groundY, bodyX, bodyY);
+    tGrd.addColorStop(0, pal.glowAura);
+    tGrd.addColorStop(0.45, pal.bodyFront[1]);
+    tGrd.addColorStop(1, pal.bodyFront[0]);
+
+    ctx.fillStyle = tGrd;
+    ctx.beginPath();
+    ctx.moveTo(groundX - thick * 1.4, groundY);
+    ctx.quadraticCurveTo(midX - thick * 0.5, midY, bodyX - thick, bodyY);
+    ctx.lineTo(bodyX + thick, bodyY);
+    ctx.quadraticCurveTo(midX + thick * 0.5, midY, groundX + thick * 1.4, groundY);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
 /**
  * Returns color palettes tailored for each slime archetype and state.
@@ -196,6 +341,7 @@ function drawSmoothFluidPath(ctx, pts) {
 }
 
 export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
+  if (isShadowPass) return;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(2, 2);
@@ -203,6 +349,11 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
 
   const type = ent.type || "slime";
   const isSlowed = !!ent.isSlowed;
+
+  // Archetype palette configuration
+  const pal = getSlimePalette(type, isSlowed);
+  const radius = pal.radius;
+  const shadowRx = radius;
 
   if (ent._seed === undefined) {
     ent._seed = computeFastSeed(ent.id);
@@ -215,12 +366,84 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const worldY = (typeof ent.y === "number") ? ent.y : (ent._prevWorldY || 0);
   if (ent._prevWorldX === undefined) ent._prevWorldX = worldX;
   if (ent._prevWorldY === undefined) ent._prevWorldY = worldY;
-  const vx = (worldX - ent._prevWorldX) * 0.4;
-  const vy = (worldY - ent._prevWorldY) * 0.4;
+  const deltaWorldX = worldX - ent._prevWorldX;
+  const deltaWorldY = worldY - ent._prevWorldY;
+  const vx = deltaWorldX * 0.4;
+  const vy = deltaWorldY * 0.4;
   ent._prevWorldX = worldX;
   ent._prevWorldY = worldY;
 
-  const isMoving = ent.moving || (Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1);
+  const hasRealVel = (vx * vx + vy * vy) > 0.008;
+  const isMoving = !!(ent.moving || ent.isMoving || hasRealVel);
+
+  let walkAngle = 0;
+  if (hasRealVel) {
+    walkAngle = Math.atan2(vy, vx);
+  } else if (typeof ent.facingAngle === "number") {
+    walkAngle = ent.facingAngle;
+  }
+
+  // Delta time for organic walk hop cycle
+  const dtSec = Math.min(0.08, Math.max(0.001, (now - (ent._lastSlimeTime || now)) / 1000));
+  ent._lastSlimeTime = now;
+
+  // Walk hop frequency & progress
+  const intensity = typeof ent.hopIntensity === "number" ? ent.hopIntensity : 1.0;
+  const hopRate = isSlowed ? 2.5 : (type === "boss_slime" ? 3.3 : 5.4);
+  if (ent._walkProgress === undefined) {
+    ent._walkProgress = (seed % 100) * 0.1;
+  }
+  if (isMoving) {
+    ent._walkProgress += dtSec * hopRate;
+  }
+  const walkPhase = ((ent._walkProgress % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+  // Smooth blending of walk weight (idle breathing vs hopping gait)
+  if (ent._walkWeight === undefined) ent._walkWeight = isMoving ? 1 : 0;
+  const targetWalkWeight = isMoving ? 1 : 0;
+  ent._walkWeight += (targetWalkWeight - ent._walkWeight) * Math.min(1, dtSec * 9);
+  const wWeight = ent._walkWeight;
+
+  // 4-Phase Slime Hop Kinematics:
+  // Phase 1: Crouch & compress (0 <= phase < 0.28 * PI)
+  // Phase 2: Elastic spring leap & flight (0.28 * PI <= phase < 0.78 * PI)
+  // Phase 3: Impact touchdown & splat squish (0.78 * PI <= phase < 1.15 * PI)
+  // Phase 4: Elastic rebound oscillation (1.15 * PI <= phase < 2 * PI)
+  let pCrouch = 0, pJump = 0, pSplat = 0, pRebound = 0;
+  let hopY = 0, hopScaleX = 1, hopScaleY = 1, hopTilt = 0, driftX = 0;
+  const maxHop = radius * (isSlowed ? 0.32 : (type === "boss_slime" ? 0.44 : 0.65)) * intensity;
+
+  if (walkPhase < 0.28 * Math.PI) {
+    pCrouch = Math.sin((walkPhase / (0.28 * Math.PI)) * Math.PI);
+    hopScaleX = 1 + pCrouch * 0.30 * intensity;
+    hopScaleY = 1 - pCrouch * 0.26 * intensity;
+    hopY = pCrouch * 1.5;
+  } else if (walkPhase < 0.78 * Math.PI) {
+    const p = (walkPhase - 0.28 * Math.PI) / (0.50 * Math.PI);
+    pJump = Math.sin(p * Math.PI);
+    hopY = -pJump * maxHop;
+    hopScaleX = 1 - pJump * 0.22 * intensity;
+    hopScaleY = 1 + pJump * 0.36 * intensity;
+    const facingSign = Math.cos(walkAngle) >= 0 ? 1 : -1;
+    hopTilt = Math.sin(p * Math.PI) * 0.20 * facingSign * intensity;
+    driftX = (p - 0.5) * (radius * 0.32) * facingSign * intensity;
+  } else if (walkPhase < 1.15 * Math.PI) {
+    const p = (walkPhase - 0.78 * Math.PI) / (0.37 * Math.PI);
+    pSplat = Math.sin(p * Math.PI);
+    hopY = 0;
+    hopScaleX = 1 + pSplat * 0.42 * intensity;
+    hopScaleY = 1 - pSplat * 0.30 * intensity;
+  } else {
+    const p = (walkPhase - 1.15 * Math.PI) / (0.85 * Math.PI);
+    pRebound = Math.sin(p * Math.PI * 3) * Math.exp(-p * 3) * 0.16 * intensity;
+    hopScaleX = 1 - pRebound;
+    hopScaleY = 1 + pRebound;
+    hopY = 0;
+  }
+
+  const currentHopY = hopY * wWeight;
+  const currentTilt = hopTilt * wWeight;
+  const currentDriftX = driftX * wWeight;
 
   // Attack & Hit states
   let isAttacking = !!ent.isAttacking;
@@ -237,68 +460,239 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const hpRatio = (ent.hp !== undefined && ent.maxHp) ? Math.max(0, ent.hp / ent.maxHp) : 1;
   const isHit = ent.lastHitTime && (now - ent.lastHitTime < 300);
 
-  // Kinetic breathing & jiggle
+  // Idle kinetic breathing & jiggle
   const timeScale = type === "boss_slime" ? 0.0025 : 0.0055;
-  const jiggleAmp = isHit ? 0.35 : (isAttacking ? 0.28 : (isMoving ? 0.20 : (type === "boss_slime" ? 0.08 : 0.12)));
+  const jiggleAmp = isHit ? 0.35 : (isAttacking ? 0.28 : (type === "boss_slime" ? 0.08 : 0.12));
   const bounce = Math.sin(now * timeScale + seed) * jiggleAmp;
   const secondaryWobble = Math.cos(now * timeScale * 1.7 + seed * 0.5) * (jiggleAmp * 0.45);
   const hitWobble = isHit ? Math.sin(now * 0.06) * 0.16 : 0;
 
-  // Ground compression & inertia lean
+  // Blended composite scale
   const moveStretch = Math.min(0.24, Math.sqrt(vx * vx + vy * vy) * 0.05);
-  const scaleX = (1 + bounce - moveStretch * 0.4 + hitWobble);
-  const scaleY = (1 - bounce - secondaryWobble + moveStretch - hitWobble * 0.4);
-  const moveAngle = isMoving ? Math.atan2(vy, vx) : 0;
+  const idleScaleX = (1 + bounce - moveStretch * 0.4 + hitWobble);
+  const idleScaleY = (1 - bounce - secondaryWobble + moveStretch - hitWobble * 0.4);
+  const scaleX = idleScaleX * (1 - wWeight) + (hopScaleX + hitWobble) * wWeight;
+  const scaleY = idleScaleY * (1 - wWeight) + (hopScaleY - hitWobble * 0.4) * wWeight;
+  const moveAngle = walkAngle;
 
-  // Archetype palette configuration
-  const pal = getSlimePalette(type, isSlowed);
-  const radius = pal.radius;
-  const shadowRx = radius;
+  // Persistent slime puddle & ripple maps
+  const entKey = (ent.id || "preview_mob") + "_" + type;
+  let puddles = _slimePuddleMap.get(entKey) || [];
+  let ripples = _slimeRippleMap.get(entKey) || [];
+  _slimePuddleMap.set(entKey, puddles);
+  _slimeRippleMap.set(entKey, ripples);
 
-  // Motion droplet particles
-  if (!isShadowPass && isMoving && Math.random() < (type === "boss_slime" ? 0.35 : 0.16)) {
-    if (typeof spawnParticle === "function") {
-      spawnParticle({
-        x: worldX + (Math.random() - 0.5) * radius,
-        y: worldY + radius * 0.4 + (Math.random() - 0.5) * 4,
-        vx: (Math.random() - 0.5) * 16 - vx * 8,
-        vy: -4 - Math.random() * 12,
-        color: pal.particleColors,
-        size: 2 + Math.random() * 3,
-        maxLife: 0.35 + Math.random() * 0.25,
-        gravity: 25,
-        drag: 0.92,
-        style: "circle",
-        shrink: true,
+  // Landing & Liftoff Transition Events
+  const prevPhase = ent._prevWalkPhase !== undefined ? ent._prevWalkPhase : walkPhase;
+  ent._prevWalkPhase = walkPhase;
+  const isLandingHit = isMoving && (prevPhase < 0.78 * Math.PI && walkPhase >= 0.78 * Math.PI);
+  const isLiftoffHit = isMoving && (prevPhase < 0.28 * Math.PI && walkPhase >= 0.28 * Math.PI);
+
+  if (isLandingHit) {
+    if (ent.showRipples !== false) {
+      ripples.push({
+        x: 0,
+        y: radius * 1.05,
+        createdAt: now,
+        duration: 440,
+        maxRadius: radius * (type === "boss_slime" ? 2.3 : 1.68),
+        color: pal.glowAura,
+        fresnel: pal.fresnel
       });
     }
+
+    if (ent.showPuddles !== false) {
+      const deltas = [];
+      for (let k = 0; k < 8; k++) deltas.push(0.82 + Math.random() * 0.36);
+      puddles.push({
+        x: (Math.random() - 0.5) * (radius * 0.2),
+        y: radius * 1.05 + (Math.random() - 0.5) * 3,
+        rx: radius * (0.44 + Math.random() * 0.22) * intensity,
+        ry: radius * (0.22 + Math.random() * 0.12) * intensity,
+        angle: walkAngle + (Math.random() - 0.5) * 0.4,
+        createdAt: now,
+        duration: 2500 + Math.random() * 800,
+        colorFront: pal.bodyFront[1],
+        colorDeep: pal.bodyBack[1],
+        glow: pal.glowAura,
+        specular: pal.highlight,
+        shapeDeltas: deltas
+      });
+    }
+
+    if (typeof spawnParticle === "function") {
+      const pCount = type === "boss_slime" ? 8 : 5;
+      for (let s = 0; s < pCount; s++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = (22 + Math.random() * 32) * intensity;
+        spawnParticle({
+          x: worldX + (Math.random() - 0.5) * radius * 0.8,
+          y: worldY + radius * 0.7,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd * 0.3 - 4 - Math.random() * 8,
+          color: pal.particleColors,
+          size: 1.8 + Math.random() * 2.2,
+          maxLife: 0.42 + Math.random() * 0.22,
+          gravity: 42,
+          drag: 0.90,
+          shrink: true,
+          style: "circle"
+        });
+      }
+    }
   }
+
+  if (isLiftoffHit) {
+    if (typeof spawnParticle === "function") {
+      for (let u = 0; u < 3; u++) {
+        spawnParticle({
+          x: worldX + (Math.random() - 0.5) * radius * 0.6,
+          y: worldY + radius * 0.5,
+          vx: -Math.cos(walkAngle) * 16 + (Math.random() - 0.5) * 18,
+          vy: -16 - Math.random() * 18,
+          color: pal.particleColors,
+          size: 2.0 + Math.random() * 2.0,
+          maxLife: 0.48,
+          gravity: 30,
+          drag: 0.93,
+          shrink: true,
+          style: "circle"
+        });
+      }
+    }
+  }
+
+  // Variant-specific continuous walk particles
+  if (!isShadowPass && isMoving && Math.random() < (type === "boss_slime" ? 0.35 : 0.18)) {
+    if (typeof spawnParticle === "function") {
+      if (type.includes("magma") || type.includes("lava") || type.includes("fire")) {
+        spawnParticle({
+          x: worldX + (Math.random() - 0.5) * radius,
+          y: worldY + radius * 0.3,
+          vx: (Math.random() - 0.5) * 12,
+          vy: -10 - Math.random() * 16,
+          color: ["#fef08a", "#fb923c", "#ef4444"],
+          size: 1.8 + Math.random() * 2.2,
+          maxLife: 0.55,
+          gravity: -15,
+          drag: 0.95,
+          shrink: true,
+          style: "circle"
+        });
+      } else if (type.includes("frost") || type.includes("ice") || isSlowed) {
+        spawnParticle({
+          x: worldX + (Math.random() - 0.5) * radius,
+          y: worldY + radius * 0.4,
+          vx: (Math.random() - 0.5) * 10,
+          vy: -6 - Math.random() * 10,
+          color: ["#e0f2fe", "#bae6fd", "#ffffff"],
+          size: 1.5 + Math.random() * 2,
+          maxLife: 0.45,
+          gravity: 12,
+          drag: 0.92,
+          shrink: true,
+          style: "circle"
+        });
+      } else if (type.includes("toxic") || type.includes("acid")) {
+        spawnParticle({
+          x: worldX + (Math.random() - 0.5) * radius,
+          y: worldY + radius * 0.4,
+          vx: (Math.random() - 0.5) * 14,
+          vy: -8 - Math.random() * 12,
+          color: ["#bef264", "#a3e635", "#d9f99d"],
+          size: 1.6 + Math.random() * 2,
+          maxLife: 0.42,
+          gravity: 20,
+          drag: 0.92,
+          shrink: true,
+          style: "circle"
+        });
+      } else if (pal.hasCrown) {
+        spawnParticle({
+          x: worldX + (Math.random() - 0.5) * radius,
+          y: worldY + radius * 0.2,
+          vx: (Math.random() - 0.5) * 12,
+          vy: -12 - Math.random() * 12,
+          color: ["#fef08a", "#facc15", "#ffffff"],
+          size: 1.8 + Math.random() * 2.2,
+          maxLife: 0.45,
+          gravity: 10,
+          drag: 0.94,
+          shrink: true,
+          style: "circle"
+        });
+      } else {
+        spawnParticle({
+          x: worldX + (Math.random() - 0.5) * radius,
+          y: worldY + radius * 0.4 + (Math.random() - 0.5) * 4,
+          vx: (Math.random() - 0.5) * 16 - vx * 8,
+          vy: -4 - Math.random() * 12,
+          color: pal.particleColors,
+          size: 2 + Math.random() * 3,
+          maxLife: 0.35 + Math.random() * 0.25,
+          gravity: 25,
+          drag: 0.92,
+          style: "circle",
+          shrink: true
+        });
+      }
+    }
+  }
+
+  // Update & drift puddles
+  if (isMoving && !hasRealVel) {
+    const driftSpd = 20 * intensity;
+    for (let i = 0; i < puddles.length; i++) {
+      puddles[i].x -= Math.cos(walkAngle) * driftSpd * dtSec;
+      puddles[i].y -= Math.sin(walkAngle) * driftSpd * dtSec * 0.35;
+    }
+  } else if (hasRealVel) {
+    for (let i = 0; i < puddles.length; i++) {
+      puddles[i].x -= deltaWorldX;
+      puddles[i].y -= deltaWorldY;
+    }
+  }
+
+  // Clean expired puddles and ripples
+  puddles = puddles.filter(p => now - p.createdAt < p.duration);
+  if (puddles.length > 14) puddles.splice(0, puddles.length - 14);
+  ripples = ripples.filter(r => now - r.createdAt < r.duration);
+  if (ripples.length > 6) ripples.splice(0, ripples.length - 6);
+  _slimePuddleMap.set(entKey, puddles);
+  _slimeRippleMap.set(entKey, ripples);
 
   ctx.save();
   ctx.translate(x, y);
 
-  // 1. Soft Multi-Stop Radial Ambient Occlusion Shadow (Zero Hard Lines)
+  // Render ground slime puddles & footprints
+  if (!isShadowPass) {
+    for (let i = 0; i < puddles.length; i++) {
+      drawFluidPuddle(ctx, puddles[i], now);
+    }
+    // Render ground impact shockwave ripples
+    for (let i = 0; i < ripples.length; i++) {
+      drawFluidRipple(ctx, ripples[i], now);
+    }
+  }
+
+  // 1. Soft Multi-Stop Radial Ambient Occlusion Shadow with Dynamic Air Height Response
   ctx.save();
   ctx.scale(1, 0.34);
   const shadowY = radius * 1.05 + bounce * 4;
-  
-  // Outer soft contact shadow
-  const shadowGrd = ctx.createRadialGradient(0, shadowY, 0, 0, shadowY, shadowRx * scaleX * 1.25);
-  shadowGrd.addColorStop(0, "rgba(5, 12, 10, 0.55)");
-  shadowGrd.addColorStop(0.5, "rgba(5, 12, 10, 0.22)");
-  shadowGrd.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = shadowGrd;
-  ctx.beginPath();
-  ctx.ellipse(0, shadowY, shadowRx * scaleX * 1.25, shadowRx * scaleX * 0.85, 0, 0, Math.PI * 2);
-  ctx.fill();
+  const airRatio = Math.max(0, -currentHopY / (radius * 0.85));
+  const dynamicShadowScale = Math.max(0.42, (1 - airRatio * 0.38) * (1 + (scaleX - 1) * 0.45));
+  const dynamicShadowAlpha = Math.max(0.18, 1 - airRatio * 0.45);
+
+  // Ground shadow circle removed per design rule: never render solid shadow circles around monsters
 
   // Translucent colored floor glow reflection
-  const glowGrd = ctx.createRadialGradient(0, shadowY, 0, 0, shadowY, shadowRx * scaleX * 1.45);
+  const glowGrd = ctx.createRadialGradient(0, shadowY, 0, 0, shadowY, shadowRx * dynamicShadowScale * 1.45);
   glowGrd.addColorStop(0, pal.glowAura);
   glowGrd.addColorStop(0.65, "rgba(0, 0, 0, 0)");
+  ctx.globalAlpha = dynamicShadowAlpha;
   ctx.fillStyle = glowGrd;
   ctx.beginPath();
-  ctx.ellipse(0, shadowY, shadowRx * scaleX * 1.45, shadowRx * scaleX * 0.95, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, shadowY, shadowRx * dynamicShadowScale * 1.45, shadowRx * dynamicShadowScale * 0.95, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -307,6 +701,9 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
     ctx.restore();
     return;
   }
+
+  // Viscous slime tendrils connecting ground to rising slime base during initial leap
+  drawSlimeTendrils(ctx, radius, currentHopY, shadowY, pal);
 
   // 2. Boss Atmospheric Radial Aura Glow
   if (type === "boss_slime") {
@@ -321,11 +718,12 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
     ctx.fill();
   }
 
-  // 3. Fluid Body Transform
-  if (isMoving) ctx.rotate(moveAngle * 0.12);
+  // 3. Fluid Body Transform (with Walk Hop, Forward Drift, and Tilt)
+  ctx.translate(currentDriftX, currentHopY);
+  ctx.rotate(currentTilt + (isMoving ? moveAngle * 0.08 : 0));
   ctx.scale(scaleX, scaleY);
 
-  // Compute 24-point harmonic organic fluid membrane
+  // Compute 24-point harmonic organic fluid membrane with Walk Wave Deformation
   const pointsCount = 24;
   const perimeterPoints = [];
   for (let i = 0; i < pointsCount; i++) {
@@ -334,7 +732,10 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
     const wave2 = Math.cos(now * 0.011 - angle * 2 + seed) * (radius * 0.038);
     // Organic tear-drop drooping: slightly wider bottom
     const verticalDroop = Math.sin(angle) * (radius * 0.04);
-    const r = radius + wave1 + wave2 + verticalDroop;
+    // Walk kinetic deformation: bottom flares on splat, top stretches on jump
+    const bottomFlare = (angle > 0.3 && angle < Math.PI - 0.3) ? pSplat * (radius * 0.14) * Math.sin(angle) * wWeight : 0;
+    const topPeak = (angle < -0.3 && angle > -Math.PI + 0.3) ? pJump * (radius * 0.10) * Math.abs(Math.sin(angle)) * wWeight : 0;
+    const r = radius + wave1 + wave2 + verticalDroop + bottomFlare + topPeak;
     perimeterPoints.push({
       x: Math.cos(angle) * r,
       y: Math.sin(angle) * r
@@ -384,8 +785,9 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
 
   // 7. Suspended 3D Bioluminescent Liquid Nucleus Core (Lineless Soft Radiant Falloff)
   ctx.save();
+  const nHopLag = (-currentHopY * 0.20 - pSplat * 2.8) * wWeight;
   const nParallaxX = -vx * 3.2 + Math.sin(now * 0.003 + seed) * 1.5;
-  const nParallaxY = -vy * 3.2 + bounce * radius * 0.22;
+  const nParallaxY = -vy * 3.2 + bounce * radius * 0.22 + nHopLag;
   ctx.translate(nParallaxX, nParallaxY);
 
   const coreRadius = radius * 0.46;
@@ -416,8 +818,9 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
 
   // 8. Suspended Relics with Soft Gradients
   ctx.save();
+  const relicHopLag = (-currentHopY * 0.14 - pSplat * 2.2) * wWeight;
   const relicParallaxX = -vx * 1.8;
-  const relicParallaxY = -vy * 1.8 + Math.sin(now * 0.0022 + seed * 2) * 2;
+  const relicParallaxY = -vy * 1.8 + Math.sin(now * 0.0022 + seed * 2) * 2 + relicHopLag;
   ctx.translate(relicParallaxX, relicParallaxY);
 
   if (pal.hasCrown) {
@@ -561,7 +964,6 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const isBlinking = (now + seed * 10) % 4200 < 160;
   const eyeR = Math.max(2.8, radius * 0.165);
 
-  const entKey = (ent.id || "preview_mob") + "_" + type;
   let dvd = _dvdEyeMap.get(entKey);
   const baseSpeed = Math.max(24, Math.round(radius * 1.5));
 
@@ -599,12 +1001,36 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   dvd.lastTime = now;
 
   // Update and ricochet each eye separately across the entire organic slime body with randomized angles
-  const updateSingleEye = (eye) => {
+  const updateSingleEye = (eye, otherEye) => {
+    // Dynamic fluid acceleration from slime movement: internal liquid current exerts circulation force
+    const fluidSwirlAngle = walkAngle + (eye === dvd.left ? -0.35 : 0.35);
+    const fluidPush = isMoving ? 16 * wWeight : 0;
+    const swirlForceX = Math.cos(fluidSwirlAngle) * fluidPush;
+    const swirlForceY = Math.sin(fluidSwirlAngle) * fluidPush;
+
     // Gentle fluid wandering so trajectory is organic and not locked to a single rigid slope
     const driftAngle = (Math.sin(now * 0.0022 + eye.seedOffset) + Math.cos(now * 0.0017 + eye.seedOffset * 1.8)) * 0.015;
-    let curVAng = Math.atan2(eye.vy, eye.vx) + driftAngle;
-    eye.vx = Math.cos(curVAng) * baseSpeed;
-    eye.vy = Math.sin(curVAng) * baseSpeed;
+    let curVAng = Math.atan2(eye.vy + swirlForceY * dt, eye.vx + swirlForceX * dt) + driftAngle;
+
+    // Dynamic speed modulation: acceleration during hop leap, compression drag during landing splat
+    const speedMod = 1 + (pJump * 0.32 - pSplat * 0.22) * wWeight;
+    const currentSpeed = baseSpeed * Math.max(0.65, speedMod);
+
+    eye.vx = Math.cos(curVAng) * currentSpeed;
+    eye.vy = Math.sin(curVAng) * currentSpeed;
+
+    // Inter-eye fluid displacement repulsion when eyes pass close to each other
+    if (otherEye) {
+      const edx = eye.x - otherEye.x;
+      const edy = eye.y - otherEye.y;
+      const edist = Math.hypot(edx, edy);
+      const minSeparation = eyeR * 2.2;
+      if (edist < minSeparation && edist > 0.001) {
+        const repulseForce = ((minSeparation - edist) / minSeparation) * 45;
+        eye.vx += (edx / edist) * repulseForce;
+        eye.vy += (edy / edist) * repulseForce;
+      }
+    }
 
     eye.x += eye.vx * dt;
     eye.y += eye.vy * dt;
@@ -675,17 +1101,22 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
     }
   };
 
-  updateSingleEye(dvd.left);
-  updateSingleEye(dvd.right);
+  updateSingleEye(dvd.left, dvd.right);
+  updateSingleEye(dvd.right, dvd.left);
 
   const leftColor = DVD_SCREENSAVER_COLORS[dvd.left.colorIndex];
   const rightColor = DVD_SCREENSAVER_COLORS[dvd.right.colorIndex];
 
-  // Fluid inertia wobble on each separated eye
-  const leftWobbleX = -vx * 2.0 + Math.sin(now * 0.007 + seed) * (radius * 0.025);
-  const leftWobbleY = -vy * 2.0 + Math.cos(now * 0.008 + seed) * (radius * 0.03) + bounce * radius * 0.15;
-  const rightWobbleX = -vx * 2.0 + Math.sin(now * 0.007 + seed + 2.5) * (radius * 0.025);
-  const rightWobbleY = -vy * 2.0 + Math.cos(now * 0.008 + seed + 2.5) * (radius * 0.03) + bounce * radius * 0.15;
+  // Fluid inertia wobble on each separated eye with movement drag and hop lag
+  const moveDragX = -Math.cos(walkAngle) * (radius * 0.12) * wWeight - vx * 2.5;
+  const moveDragY = -Math.sin(walkAngle) * (radius * 0.07) * wWeight - vy * 2.5;
+  const hopInertiaY = (pJump * (radius * 0.16) + pSplat * (radius * 0.22)) * wWeight;
+  const elasticJiggle = Math.sin(now * 0.024 + seed) * pSplat * 2.2 * wWeight;
+
+  const leftWobbleX = moveDragX + Math.sin(now * 0.007 + seed) * (radius * 0.025);
+  const leftWobbleY = moveDragY + Math.cos(now * 0.008 + seed) * (radius * 0.03) + bounce * radius * 0.15 + hopInertiaY + elasticJiggle;
+  const rightWobbleX = moveDragX + Math.sin(now * 0.007 + seed + 2.5) * (radius * 0.025);
+  const rightWobbleY = moveDragY + Math.cos(now * 0.008 + seed + 2.5) * (radius * 0.03) + bounce * radius * 0.15 + hopInertiaY + elasticJiggle;
 
   // Contain rendered eye centers within the organic slime boundary under all motion
   const clampEyePosition = (ex, ey) => {
@@ -708,6 +1139,55 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
   const leftEyeY = leftPos.y;
   const rightEyeX = rightPos.x;
   const rightEyeY = rightPos.y;
+
+  // Dynamic soft-body squash and stretch on each eyeball
+  const hopEyeSquashX = 1 + pSplat * 0.32 * wWeight - pJump * 0.16 * wWeight;
+  const hopEyeSquashY = 1 - pSplat * 0.25 * wWeight + pJump * 0.26 * wWeight;
+
+  const computeEyeSquash = (eye) => {
+    const eyeSpeed = Math.hypot(eye.vx, eye.vy);
+    const speedRatio = Math.min(1, eyeSpeed / baseSpeed);
+    const speedStretch = speedRatio * 0.14 * (isMoving ? 1.4 : 1.0);
+    const velAngle = Math.atan2(eye.vy, eye.vx);
+
+    return {
+      sx: hopEyeSquashX * (1 + speedStretch * 0.5),
+      sy: hopEyeSquashY * (1 - speedStretch * 0.35),
+      rot: velAngle * 0.20 + currentTilt * 0.4
+    };
+  };
+
+  const leftDeform = computeEyeSquash(dvd.left);
+  const rightDeform = computeEyeSquash(dvd.right);
+
+  // Dynamic pupil offset: gaze tracking + fluid lag + hop inertia
+  const maxPupilShift = eyeR * 0.42;
+  const lookTargetX = isMoving ? Math.cos(walkAngle) * (eyeR * 0.34) * wWeight : 0;
+  const lookTargetY = isMoving ? Math.sin(walkAngle) * (eyeR * 0.26) * wWeight : 0;
+  const hopPupilLagY = (pJump * 0.6 + pSplat * 1.1) * wWeight;
+
+  const computePupilOffset = (eye) => {
+    const eyeLagX = -(eye.vx / baseSpeed) * (eyeR * 0.22);
+    const eyeLagY = -(eye.vy / baseSpeed) * (eyeR * 0.22);
+    const rawX = lookTargetX + eyeLagX - vx * 1.6;
+    const rawY = lookTargetY + eyeLagY - vy * 1.6 + hopPupilLagY;
+    const dist = Math.hypot(rawX, rawY);
+    if (dist > maxPupilShift && dist > 0.001) {
+      return {
+        x: (rawX / dist) * maxPupilShift,
+        y: (rawY / dist) * maxPupilShift
+      };
+    }
+    return { x: rawX, y: rawY };
+  };
+
+  const leftPupilPos = computePupilOffset(dvd.left);
+  const rightPupilPos = computePupilOffset(dvd.right);
+
+  // Dynamic pupil dilation: dilates wide at jump apex, constricts on splat impact
+  const basePupilR = (isAttacking || isHit) ? eyeR * 0.65 : eyeR * 0.54;
+  const dilationFactor = Math.max(0.72, Math.min(1.22, 1 + (pJump * 0.18 - pSplat * 0.24) * wWeight));
+  const dynamicPupilR = basePupilR * dilationFactor;
 
   // Visual interaction when separated eyes cross paths inside the translucent fluid
   const eyeDx = rightEyeX - leftEyeX;
@@ -756,21 +1236,39 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
     drawClosedEye(leftEyeX, leftEyeY, leftColor);
     drawClosedEye(rightEyeX, rightEyeY, rightColor);
   } else {
-    // Volumetric Spherical Eyeballs with Independent DVD Color Shifts
-    const drawEye = (ex, ey, pOffX, pOffY, eyeColor) => {
-      // Liquid Eye Socket Ambient Shadow
-      const sckGrd = ctx.createRadialGradient(ex, ey, eyeR * 0.4, ex, ey, eyeR * 1.25);
-      sckGrd.addColorStop(0, "rgba(0, 0, 0, 0.25)");
+    // Volumetric Spherical Eyeballs with Dynamic Fluid Deformation & Pupil Inertia
+    const drawEye = (ex, ey, pOffX, pOffY, eyeColor, eyeSx, eyeSy, eyeRot) => {
+      ctx.save();
+      ctx.translate(ex, ey);
+      if (eyeRot) ctx.rotate(eyeRot);
+      ctx.scale(eyeSx, eyeSy);
+
+      // Liquid Eye Socket Ambient Shadow with dynamic lag shift
+      const socketLagX = -pOffX * 0.35;
+      const socketLagY = -pOffY * 0.35;
+      const sckGrd = ctx.createRadialGradient(socketLagX, socketLagY, eyeR * 0.35, 0, 0, eyeR * 1.35);
+      sckGrd.addColorStop(0, "rgba(0, 0, 0, 0.28)");
+      sckGrd.addColorStop(0.7, "rgba(0, 0, 0, 0.08)");
       sckGrd.addColorStop(1, "rgba(0, 0, 0, 0)");
       ctx.fillStyle = sckGrd;
       ctx.beginPath();
-      ctx.arc(ex, ey, eyeR * 1.25, 0, Math.PI * 2);
+      ctx.arc(0, 0, eyeR * 1.35, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Fluid wake rim / liquid displacement caustic behind moving eye
+      const wakeGrd = ctx.createRadialGradient(0, 0, eyeR * 0.65, 0, 0, eyeR * 1.15);
+      wakeGrd.addColorStop(0, "rgba(255, 255, 255, 0)");
+      wakeGrd.addColorStop(0.7, pal.fresnel);
+      wakeGrd.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = wakeGrd;
+      ctx.beginPath();
+      ctx.arc(0, 0, eyeR * 1.15, 0, Math.PI * 2);
       ctx.fill();
 
       // Cornea / Sclera Spherical Radial Gradient tinted with DVD bouncing hue
       const sclGrd = ctx.createRadialGradient(
-        ex - eyeR * 0.3, ey - eyeR * 0.3, 0.2,
-        ex, ey, eyeR
+        -eyeR * 0.3, -eyeR * 0.3, 0.2,
+        0, 0, eyeR
       );
       sclGrd.addColorStop(0, "#ffffff");
       sclGrd.addColorStop(0.65, eyeColor);
@@ -778,14 +1276,13 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
 
       ctx.fillStyle = sclGrd;
       ctx.beginPath();
-      ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+      ctx.arc(0, 0, eyeR, 0, Math.PI * 2);
       ctx.fill();
 
-      // Deep Liquid Pupil with Soft Rim
-      const pupilR = (isAttacking || isHit) ? eyeR * 0.65 : eyeR * 0.54;
+      // Deep Liquid Pupil with Dynamic Inertial Lag & Dilation
       const pupGrd = ctx.createRadialGradient(
-        ex + pOffX, ey + pOffY, 0,
-        ex + pOffX, ey + pOffY, pupilR
+        pOffX, pOffY, 0,
+        pOffX, pOffY, dynamicPupilR
       );
       pupGrd.addColorStop(0, "#020617");
       pupGrd.addColorStop(0.85, pal.pupilColor);
@@ -793,28 +1290,25 @@ export function drawSlimeEntity(ctx, x, y, ent, isShadowPass = false) {
 
       ctx.fillStyle = pupGrd;
       ctx.beginPath();
-      ctx.arc(ex + pOffX, ey + pOffY, pupilR, 0, Math.PI * 2);
+      ctx.arc(pOffX, pOffY, dynamicPupilR, 0, Math.PI * 2);
       ctx.fill();
 
       // Primary Specular Cornea Sparkle
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.arc(ex + pOffX - eyeR * 0.22, ey + pOffY - eyeR * 0.22, eyeR * 0.26, 0, Math.PI * 2);
+      ctx.arc(pOffX - dynamicPupilR * 0.38, pOffY - dynamicPupilR * 0.38, dynamicPupilR * 0.42, 0, Math.PI * 2);
       ctx.fill();
 
       // Secondary Micro Catchlight
       ctx.beginPath();
-      ctx.arc(ex + pOffX + eyeR * 0.24, ey + pOffY + eyeR * 0.24, eyeR * 0.12, 0, Math.PI * 2);
+      ctx.arc(pOffX + dynamicPupilR * 0.42, pOffY + dynamicPupilR * 0.42, dynamicPupilR * 0.20, 0, Math.PI * 2);
       ctx.fill();
+
+      ctx.restore();
     };
 
-    const leftPOffX = Math.max(-1.5, Math.min(1.5, vx * 1.5 + dvd.left.vx * 0.1));
-    const leftPOffY = Math.max(-1.5, Math.min(1.5, vy * 1.5 + dvd.left.vy * 0.1));
-    const rightPOffX = Math.max(-1.5, Math.min(1.5, vx * 1.5 + dvd.right.vx * 0.1));
-    const rightPOffY = Math.max(-1.5, Math.min(1.5, vy * 1.5 + dvd.right.vy * 0.1));
-
-    drawEye(leftEyeX, leftEyeY, leftPOffX, leftPOffY, leftColor);
-    drawEye(rightEyeX, rightEyeY, rightPOffX, rightPOffY, rightColor);
+    drawEye(leftEyeX, leftEyeY, leftPupilPos.x, leftPupilPos.y, leftColor, leftDeform.sx, leftDeform.sy, leftDeform.rot);
+    drawEye(rightEyeX, rightEyeY, rightPupilPos.x, rightPupilPos.y, rightColor, rightDeform.sx, rightDeform.sy, rightDeform.rot);
 
     if (isAttacking || isHit) {
       // Soft Liquid Furrow Crease above eyes (Gradient-based instead of harsh line)

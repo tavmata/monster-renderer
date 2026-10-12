@@ -6,6 +6,7 @@ const ARCHER_REGEX = /archer|scout|hunter/i;
 const THIEF_REGEX = /thief|rogue|assassin|dagger/i;
 
 export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
+  if (isShadowPass) return;
   if (!ent) ent = {};
   const type = ent.type || "goblin";
   const isSlowed = !!ent.isSlowed;
@@ -197,30 +198,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   // -------------------------------------------------------------
   const skinBase = isSlowed ? "#38bdf8" : isThief ? "#1f5f30" : isMage ? "#1b6350" : isWarrior ? "#287038" : isBrute ? "#1e562c" : isKing ? "#34853d" : "#2d7a38";
   const skinDark = isSlowed ? "#0284c7" : isThief ? "#123d1e" : isMage ? "#104235" : isWarrior ? "#164622" : isBrute ? "#10361a" : isKing ? "#1d5225" : "#1a4c23";
-  const skinOutline = isSlowed ? "#0369a1" : "#051d0d";
   const innerEar = isSlowed ? "#0284c7" : isMage ? "#0d3b2f" : "#14401e";
   const eyeColor = isMage ? "#c084fc" : isKing ? "#fbbf24" : isThief ? "#f97316" : isWarrior ? "#ea580c" : "#facc15";
 
-  // -------------------------------------------------------------
-  // 1. Ambient Contact Shadow (Ground-Anchored with Occlusion)
-  // -------------------------------------------------------------
-  if (!isShadowPass) {
-    ctx.save();
-    const shadowW = 9.2 * (scale / 1.7);
-    const shadowH = 4.2 * (scale / 1.7);
-    const shadowAlpha = moving ? 0.30 : 0.38;
-    ctx.fillStyle = `rgba(5, 20, 10, ${shadowAlpha})`;
-    ctx.beginPath();
-    ctx.ellipse(x, y + 2.0, shadowW, shadowH, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Inner dark core shadow
-    ctx.fillStyle = "rgba(0, 5, 2, 0.25)";
-    ctx.beginPath();
-    ctx.ellipse(x, y + 2.0, shadowW * 0.55, shadowH * 0.55, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
+  // Ground shadow circle removed per design rule: never render solid shadow circles around monsters
 
   ctx.save();
   ctx.translate(x + lungeX, y + lungeY - bounce);
@@ -234,7 +215,7 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   const headY = cfg.headY;
 
   // -------------------------------------------------------------
-  // 2. Sinewy Whiplike Tail (Anchored to Pelvis)
+  // 2. Sinewy Whiplike Tail (Anchored to Pelvis) - Lineless
   // -------------------------------------------------------------
   const drawTail = () => {
     ctx.save();
@@ -244,35 +225,25 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     const tailTipX = tailBaseX + cfg.tailX + (isProfileView ? tailWave * 0.3 : tailWave * 0.8);
     const tailTipY = tailBaseY + cfg.tailY + (isProfileView ? tailWave * 0.7 : Math.abs(tailWave) * 0.4);
 
-    ctx.strokeStyle = isShadowPass ? "#000000" : skinOutline;
-    ctx.lineWidth = 3.2;
+    // Lineless tail body with natural skin tone
+    ctx.strokeStyle = skinDark;
+    ctx.lineWidth = 2.0;
     ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(tailBaseX, tailBaseY);
     ctx.quadraticCurveTo(tailBaseX - (isProfileView ? cfg.flip * 4.0 : 0), tailBaseY + 1.8, tailTipX, tailTipY);
     ctx.stroke();
 
-    if (!isShadowPass) {
-      ctx.strokeStyle = skinBase;
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(tailBaseX, tailBaseY);
-      ctx.quadraticCurveTo(tailBaseX - (isProfileView ? cfg.flip * 4.0 : 0), tailBaseY + 1.8, tailTipX, tailTipY);
-      ctx.stroke();
+    // Sharp Tail Barb (Lineless filled shape)
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.moveTo(tailTipX, tailTipY);
+    ctx.lineTo(tailTipX - cfg.flip * 2.2, tailTipY - 1.8);
+    ctx.lineTo(tailTipX - cfg.flip * 0.8, tailTipY);
+    ctx.lineTo(tailTipX - cfg.flip * 2.2, tailTipY + 1.8);
+    ctx.closePath();
+    ctx.fill();
 
-      // Sharp Tail Barb
-      ctx.fillStyle = skinDark;
-      ctx.strokeStyle = skinOutline;
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      ctx.moveTo(tailTipX, tailTipY);
-      ctx.lineTo(tailTipX - cfg.flip * 2.2, tailTipY - 1.8);
-      ctx.lineTo(tailTipX - cfg.flip * 0.8, tailTipY);
-      ctx.lineTo(tailTipX - cfg.flip * 2.2, tailTipY + 1.8);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    }
     ctx.restore();
   };
 
@@ -301,12 +272,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
     // Shoulder / Deltoid
     ctx.fillStyle = skinBase;
-    ctx.strokeStyle = skinOutline;
-    ctx.lineWidth = 1.1;
     ctx.beginPath();
     ctx.ellipse(0, 0, 2.6, 2.0, armDirSign * 0.2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
 
     // Warty freckle on shoulder
     ctx.fillStyle = skinDark;
@@ -318,6 +286,7 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     const handX = armDirSign * 4.8;
     const handY = 2.4;
 
+    ctx.fillStyle = skinDark;
     ctx.beginPath();
     ctx.moveTo(-0.8, -0.4);
     ctx.lineTo(handX, handY - 0.4);
@@ -325,25 +294,18 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     ctx.lineTo(-0.8, 1.4);
     ctx.closePath();
     ctx.fill();
-    ctx.stroke();
 
     // Tattered Leather / Cord Wrist Wrap
     ctx.fillStyle = "#451a03";
-    ctx.strokeStyle = "#271003";
-    ctx.lineWidth = 0.8;
     ctx.beginPath();
     ctx.ellipse(handX - armDirSign * 1.4, handY + 0.4, 1.3, 1.1, armDirSign * 0.3, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
 
     // Hand Knuckle & 3 Sharp Obsidian Talons or Dual Off-hand Dagger for Thief
     ctx.fillStyle = skinBase;
-    ctx.strokeStyle = skinOutline;
-    ctx.lineWidth = 0.8;
     ctx.beginPath();
     ctx.arc(handX, handY, 1.5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
 
     if (isThief) {
       // Thief / Assassin: Off-Hand Poison Stiletto
@@ -351,8 +313,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.translate(handX, handY);
       ctx.rotate(-armDirSign * 0.8);
       ctx.fillStyle = "#334155";
-      ctx.strokeStyle = "#0f172a";
-      ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.moveTo(0, -1.0);
       ctx.lineTo(-armDirSign * 0.8, -9.0);
@@ -360,7 +320,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(armDirSign * 1.5, -4.0);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Poison Drip Highlight
       ctx.fillStyle = "#22c55e";
@@ -369,10 +328,8 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.fill();
       ctx.restore();
     } else {
-      // 3 Sharp Curved Talons / Claws
+      // 3 Sharp Curved Talons / Claws (Lineless)
       ctx.fillStyle = "#0f172a";
-      ctx.strokeStyle = "#020617";
-      ctx.lineWidth = 0.6;
 
       // Claw 1 (Thumb / inner)
       ctx.beginPath();
@@ -381,7 +338,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(handX + armDirSign * 1.0, handY - 0.2);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Claw 2 (Middle)
       ctx.beginPath();
@@ -390,7 +346,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(handX + armDirSign * 0.8, handY + 0.8);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Claw 3 (Outer)
       ctx.beginPath();
@@ -399,7 +354,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(handX, handY + 1.2);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Specular glint on claws
       ctx.fillStyle = "#ffffff";
@@ -478,17 +432,15 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
     // Upper Arm / Shoulder Deltoid
     ctx.fillStyle = skinBase;
-    ctx.strokeStyle = skinOutline;
-    ctx.lineWidth = 1.1;
     ctx.beginPath();
     ctx.ellipse(0, 0, 2.9, 2.1, armDirSign * 0.2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
 
     // Forearm
     const handX = armDirSign * 5.8;
     const handY = 2.8;
 
+    ctx.fillStyle = skinDark;
     ctx.beginPath();
     ctx.moveTo(-1.0, 0);
     ctx.lineTo(handX, handY);
@@ -496,27 +448,20 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     ctx.lineTo(-1.0, 1.7);
     ctx.closePath();
     ctx.fill();
-    ctx.stroke();
 
     // Tattered Leather / Cord Wrist Wrap on weapon hand
     ctx.fillStyle = "#451a03";
-    ctx.strokeStyle = "#271003";
-    ctx.lineWidth = 0.8;
     ctx.beginPath();
     ctx.ellipse(handX - armDirSign * 1.8, handY + 0.4, 1.4, 1.2, armDirSign * 0.3, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
 
     // Warrior / Brute Spiked Pauldron on weapon shoulder
     if (isWarrior) {
       ctx.fillStyle = "#475569";
-      ctx.strokeStyle = "#1e293b";
-      ctx.lineWidth = 1.0;
       ctx.beginPath();
       ctx.arc(0, -0.6, 2.8, Math.PI * 0.8, Math.PI * 2.2, false);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Spike
       ctx.fillStyle = "#94a3b8";
@@ -526,7 +471,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(armDirSign * 1.2, -1.8);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
     }
 
     ctx.save();
@@ -535,7 +479,7 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     if (isMage) {
       // Occult Shaman Staff with Ornate Skull & Orb
       ctx.strokeStyle = "#451a03";
-      ctx.lineWidth = 2.2;
+      ctx.lineWidth = 2.0;
       ctx.beginPath();
       ctx.moveTo(0, 9.0);
       ctx.lineTo(0, -15.0);
@@ -548,12 +492,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.fill();
 
       ctx.fillStyle = "#c084fc";
-      ctx.strokeStyle = "#f0abfc";
-      ctx.lineWidth = 1.0;
       ctx.beginPath();
       ctx.arc(0, -16.5, 3.0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.stroke();
     } else if (isArcher) {
       // Recurve Hunting Bow
       ctx.strokeStyle = "#78350f";
@@ -563,18 +504,16 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.quadraticCurveTo(-armDirSign * 3.0, 0, armDirSign * 2.8, 11.0);
       ctx.stroke();
 
-      ctx.strokeStyle = "#e2e8f0";
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = "rgba(226, 232, 240, 0.65)";
+      ctx.lineWidth = 0.7;
       ctx.beginPath();
       ctx.moveTo(armDirSign * 2.8, -11.0);
       ctx.lineTo(armDirSign * 2.8, 11.0);
       ctx.stroke();
     } else if (isKing) {
-      // Royal Golden Great Cleaver
+      // Royal Golden Great Cleaver (Lineless)
       ctx.rotate(armDirSign * 0.4);
       ctx.fillStyle = "#f59e0b";
-      ctx.strokeStyle = "#b45309";
-      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(0, -2.5);
       ctx.lineTo(-armDirSign * 1.4, -16.0);
@@ -585,11 +524,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(0, -2.5);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Gleaming Gold Fullers & Gem
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 1.0;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.moveTo(armDirSign * 7.0, -17.5);
       ctx.lineTo(armDirSign * 8.8, -12.0);
@@ -600,13 +538,11 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.arc(armDirSign * 3.2, -10.0, 1.2, 0, Math.PI * 2);
       ctx.fill();
     } else if (isThief) {
-      // Assassin Serrated Poison Dagger
+      // Assassin Serrated Poison Dagger (Lineless)
       ctx.rotate(armDirSign * 0.45);
       ctx.fillStyle = "#1e293b";
       ctx.fillRect(-1.0, -2.0, 2.0, 4.0);
       ctx.fillStyle = "#334155";
-      ctx.strokeStyle = "#0f172a";
-      ctx.lineWidth = 1.0;
       ctx.beginPath();
       ctx.moveTo(0, -2.0);
       ctx.lineTo(-armDirSign * 1.0, -13.0);
@@ -617,11 +553,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(0, -2.0);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Toxic Poison Edge & Glow
-      ctx.strokeStyle = "#22c55e";
-      ctx.lineWidth = 1.0;
+      ctx.strokeStyle = "rgba(34, 197, 94, 0.85)";
+      ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.moveTo(armDirSign * 3.5, -14.5);
       ctx.lineTo(armDirSign * 4.5, -10.0);
@@ -632,14 +567,12 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.arc(armDirSign * 3.2, -14.0, 0.7, 0, Math.PI * 2);
       ctx.fill();
     } else if (isBrute) {
-      // Heavy Spiked Iron Club
+      // Heavy Spiked Iron Club (Lineless)
       ctx.rotate(armDirSign * 0.4);
       ctx.fillStyle = "#451a03";
       ctx.fillRect(-1.5, -2.0, 3.0, 6.0); // Thick Handle
 
       ctx.fillStyle = "#334155";
-      ctx.strokeStyle = "#0f172a";
-      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(-armDirSign * 2.0, -2.0);
       ctx.lineTo(-armDirSign * 3.5, -16.0);
@@ -647,7 +580,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(armDirSign * 3.0, -2.0);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Spikes on Club Head
       ctx.fillStyle = "#94a3b8";
@@ -658,13 +590,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.moveTo(armDirSign * 4.5, -8.0);   ctx.lineTo(armDirSign * 7.0, -8.0);   ctx.lineTo(armDirSign * 4.2, -6.0);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
     } else if (isWarrior) {
-      // Heavy Notched Iron Cleaver
+      // Heavy Notched Iron Cleaver (Lineless)
       ctx.rotate(armDirSign * 0.4);
       ctx.fillStyle = "#475569";
-      ctx.strokeStyle = "#1e293b";
-      ctx.lineWidth = 1.1;
       ctx.beginPath();
       ctx.moveTo(0, -2.5);
       ctx.lineTo(-armDirSign * 1.2, -15.0);
@@ -675,22 +604,19 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(0, -2.5);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 0.9;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.moveTo(armDirSign * 6.5, -16.5);
       ctx.lineTo(armDirSign * 8.2, -11.5);
       ctx.stroke();
     } else {
-      // Basic Goblin Scavenger Shiv (Rough Jagged Slate Blade with Twine Grip)
+      // Basic Goblin Scavenger Shiv (Lineless)
       ctx.rotate(armDirSign * 0.45);
       ctx.fillStyle = "#fef3c7";
       ctx.fillRect(-1.0, -2.0, 2.0, 4.0);
       ctx.fillStyle = "#64748b";
-      ctx.strokeStyle = "#0f172a";
-      ctx.lineWidth = 1.0;
       ctx.beginPath();
       ctx.moveTo(0, -2.0);
       ctx.lineTo(-armDirSign * 1.0, -12.0);
@@ -701,11 +627,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(0, -2.0);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Sharp Honed Razor Edge
-      ctx.strokeStyle = "#f8fafc";
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = "rgba(248, 250, 252, 0.75)";
+      ctx.lineWidth = 0.7;
       ctx.beginPath();
       ctx.moveTo(armDirSign * 5.5, -13.5);
       ctx.lineTo(armDirSign * 6.2, -9.5);
@@ -714,12 +639,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
     // Hand Knuckle holding weapon
     ctx.fillStyle = skinBase;
-    ctx.strokeStyle = skinOutline;
-    ctx.lineWidth = 0.8;
     ctx.beginPath();
     ctx.arc(0, 0, 1.6, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
 
     ctx.restore(); // Weapon
     ctx.restore(); // Arm
@@ -735,33 +657,21 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   // -------------------------------------------------------------
   const drawClawedLegs = () => {
     ctx.save();
-    ctx.strokeStyle = isShadowPass ? "#000000" : skinOutline;
-    ctx.lineWidth = 1.2;
 
     const leftStep = moving ? Math.sin(walkPhase) * 2.8 : 0;
     const rightStep = moving ? -Math.sin(walkPhase) * 2.8 : 0;
 
     const draw3ClawFoot = (footX, footY, dirFlip, isFacingBack) => {
       if (isShadowPass) return;
-      // Ambient contact drop shadow under foot
-      ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-      ctx.beginPath();
-      ctx.ellipse(footX, footY + 1.2, 2.4, 0.9, 0, 0, Math.PI * 2);
-      ctx.fill();
 
-      // Ragged Ankle Bandage Wrap
+      // Ragged Ankle Bandage Wrap (Lineless)
       ctx.fillStyle = "#451a03";
-      ctx.strokeStyle = "#271003";
-      ctx.lineWidth = 0.6;
       ctx.beginPath();
       ctx.ellipse(footX - dirFlip * 0.4, footY - 1.2, 1.4, 0.9, dirFlip * 0.2, 0, Math.PI * 2);
       ctx.fill();
-      ctx.stroke();
 
-      // 3 Sharp Obsidian Talons / Toes
+      // 3 Sharp Obsidian Talons / Toes (Lineless)
       ctx.fillStyle = "#0f172a";
-      ctx.strokeStyle = "#020617";
-      ctx.lineWidth = 0.6;
 
       if (isFacingBack) {
         // Back View: Heel spur + claws pointing slightly away
@@ -774,7 +684,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.lineTo(footX + 1.2, footY);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
       } else {
         // Front / Side / Diag: 3 Splayed Obsidian Claws
         // Claw 1 (Inner)
@@ -784,7 +693,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.lineTo(footX - dirFlip * 0.6, footY + 0.8);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
 
         // Claw 2 (Center Main Talon)
         ctx.beginPath();
@@ -793,7 +701,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.lineTo(footX + dirFlip * 0.4, footY + 0.9);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
 
         // Claw 3 (Outer)
         ctx.beginPath();
@@ -802,7 +709,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.lineTo(footX + dirFlip * 1.2, footY + 0.4);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
 
         // Specular glint on main talon
         ctx.fillStyle = "#ffffff";
@@ -818,7 +724,7 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       const leftFootY = 1.0 - (moving ? Math.max(0, leftStep) : 0);
       const isBack = cfg.view === "back";
 
-      // Left Leg (Muscular Thigh -> Knobby Knee -> Ankle -> Paw)
+      // Left Leg (Muscular Thigh -> Knobby Knee -> Ankle -> Paw) - Lineless
       ctx.fillStyle = isShadowPass ? "#000000" : (isBack ? skinDark : skinBase);
       ctx.beginPath();
       ctx.moveTo(-5.4, torsoY + 5.2);
@@ -829,11 +735,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.quadraticCurveTo(-2.0, torsoY + 9.5, -2.2, torsoY + 5.2); // Inner groin
       ctx.closePath();
       ctx.fill();
-      if (!isShadowPass) ctx.stroke();
 
       draw3ClawFoot(leftFootX, leftFootY, -1, isBack);
 
-      // Right Leg
+      // Right Leg - Lineless
       const rightFootX = 4.2;
       const rightFootY = 1.0 - (moving ? Math.max(0, rightStep) : 0);
 
@@ -846,11 +751,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.quadraticCurveTo(6.6, torsoY + 8.2, 5.4, torsoY + 5.2);
       ctx.closePath();
       ctx.fill();
-      if (!isShadowPass) ctx.stroke();
 
       draw3ClawFoot(rightFootX, rightFootY, 1, isBack);
     } else {
-      // Profile / Diagonal Digitigrade Leg Anchors
+      // Profile / Diagonal Digitigrade Leg Anchors - Lineless
       const drawSingleProfileLeg = (isBackLeg) => {
         const hipX = isBackLeg ? -cfg.flip * 2.6 : cfg.flip * 2.2;
         const step = isBackLeg ? -legSwing : legSwing;
@@ -866,7 +770,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.quadraticCurveTo(hipX + (isBackLeg ? 1.6 : 3.2), torsoY + 8.8, hipX + 2.0, torsoY + 5.2);
         ctx.closePath();
         ctx.fill();
-        if (!isShadowPass) ctx.stroke();
 
         draw3ClawFoot(footX, footY, cfg.flip, false);
       };
@@ -925,16 +828,15 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
   buildTorsoPath();
   ctx.fillStyle = isShadowPass ? "#000000" : skinBase;
-  ctx.strokeStyle = isShadowPass ? "#000000" : skinOutline;
-  ctx.lineWidth = 1.3;
   ctx.fill();
 
-  // Internal Anatomical Shading & Muscular Sculpting
+  // Internal Anatomical Shading & Muscular Sculpting (Soft Lineless Shading)
   if (!isShadowPass) {
+    const softShadowColor = isSlowed ? "rgba(2, 132, 199, 0.35)" : "rgba(16, 60, 25, 0.35)";
     if (isFrontView) {
-      // 1. Wiry Pectoral Contours & Sternum Crease (Deep Shading)
-      ctx.strokeStyle = skinDark;
-      ctx.lineWidth = 0.9;
+      // 1. Wiry Pectoral Contours & Sternum Crease (Soft Volumetric Shading)
+      ctx.strokeStyle = softShadowColor;
+      ctx.lineWidth = 0.6;
 
       if (cfg.view === "front") {
         // Dual Pectoral Plates
@@ -953,8 +855,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.stroke();
 
         // Lateral Ribcage Contours
-        ctx.strokeStyle = skinDark;
-        ctx.lineWidth = 0.7;
         ctx.beginPath();
         ctx.moveTo(-4.8, -0.6); ctx.lineTo(-3.2, 0.4);
         ctx.moveTo(-4.6, 1.2);  ctx.lineTo(-3.0, 2.2);
@@ -969,9 +869,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.stroke();
       }
     } else if (isBackView) {
-      // 2. Sculpted Scapulae (Shoulder Blades) & Vertebral Nodes
-      ctx.strokeStyle = skinDark;
-      ctx.lineWidth = 0.9;
+      // 2. Sculpted Scapulae (Shoulder Blades) & Vertebral Nodes (Soft Volumetric)
+      ctx.strokeStyle = softShadowColor;
+      ctx.lineWidth = 0.6;
 
       if (cfg.view === "back") {
         // Dual Scapular Ridges
@@ -990,8 +890,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.fill();
       } else {
         // 3/4 Back Spine Curve
-        ctx.strokeStyle = skinDark;
-        ctx.lineWidth = 0.9;
         ctx.beginPath();
         ctx.moveTo(-cfg.flip * 5.8, -2.0);
         ctx.quadraticCurveTo(-cfg.flip * 7.0, -5.2, -cfg.flip * 1.8, -6.8);
@@ -999,8 +897,8 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       }
     } else {
       // Side View Spine Curve
-      ctx.strokeStyle = skinDark;
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = softShadowColor;
+      ctx.lineWidth = 0.6;
       ctx.beginPath();
       ctx.moveTo(-cfg.flip * 5.2, -1.8);
       ctx.quadraticCurveTo(-cfg.flip * 6.6, -4.8, -cfg.flip * 1.6, -6.4);
@@ -1008,14 +906,14 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     }
 
     // -----------------------------------------------------------
-    // Ragged Dynamic Loincloth & Archetype Apparel (Seamless Clipped)
+    // Ragged Dynamic Loincloth & Archetype Apparel (Seamless Clipped, Lineless)
     // -----------------------------------------------------------
     ctx.save();
     buildTorsoPath();
     ctx.clip();
 
     if (isBasicGoblin || isThief) {
-      // Basic Goblin / Thief: Rugged Distressed Leather Loincloth with Jagged Hem Cuts
+      // Basic Goblin / Thief: Rugged Distressed Leather Loincloth (Lineless)
       ctx.fillStyle = isThief ? "#1e293b" : "#78350f";
       ctx.beginPath();
       ctx.moveTo(-20, 0.8);
@@ -1041,14 +939,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       // Stitched Leather Patch
       ctx.fillStyle = isThief ? "#334155" : "#92400e";
       ctx.fillRect(-3.5, 2.2, 3.2, 2.8);
-      ctx.strokeStyle = isThief ? "#64748b" : "#fde68a";
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(-3.5, 2.2, 3.2, 2.8);
 
-      // Central Pelvic Flap
+      // Central Pelvic Flap (Lineless)
       ctx.fillStyle = isThief ? "#1e293b" : "#78350f";
-      ctx.strokeStyle = isThief ? "#0f172a" : "#451a03";
-      ctx.lineWidth = 0.7;
       ctx.beginPath();
       ctx.moveTo(-2.2, 1.2);
       ctx.lineTo(2.2, 1.2);
@@ -1057,7 +950,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(-1.8, 6.8);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Braided Twine Belt & Knot
       ctx.fillStyle = isThief ? "#475569" : "#b45309";
@@ -1067,23 +959,17 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
       // Carved Bone Toggle / Knot
       ctx.fillStyle = "#fef3c7";
-      ctx.strokeStyle = "#78350f";
-      ctx.lineWidth = 0.6;
       ctx.beginPath();
       ctx.ellipse(0.8, 1.6, 1.2, 0.7, 0.3, 0, Math.PI * 2);
       ctx.fill();
-      ctx.stroke();
 
       // Scavenger Side Coin Pouch
       ctx.fillStyle = "#451a03";
-      ctx.strokeStyle = "#271003";
-      ctx.lineWidth = 0.6;
       ctx.beginPath();
       ctx.ellipse(-3.8, 2.2, 1.2, 1.5, -0.2, 0, Math.PI * 2);
       ctx.fill();
-      ctx.stroke();
     } else if (isKing) {
-      // King: Royal Ermine Fur Tunic & Ruby-Set Golden Belt
+      // King: Royal Ermine Fur Tunic & Ruby-Set Golden Belt (Lineless)
       ctx.fillStyle = "#831843"; // Royal Crimson Velvet
       ctx.fillRect(-20, -20, 40, 40);
 
@@ -1098,17 +984,14 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
       // Gold Belt Plate with Ruby
       ctx.fillStyle = "#f59e0b";
-      ctx.strokeStyle = "#b45309";
-      ctx.lineWidth = 1.0;
       ctx.fillRect(-20, 1.2, 40, 2.6);
-      ctx.strokeRect(-20, 1.2, 40, 2.6);
 
       ctx.fillStyle = "#ef4444";
       ctx.beginPath();
       ctx.arc(0, 2.5, 1.2, 0, Math.PI * 2);
       ctx.fill();
     } else if (isWarrior) {
-      // Warrior: Studded Iron Plate Harness & Chainmail Trim
+      // Warrior: Studded Iron Plate Harness & Chainmail Trim (Lineless)
       ctx.fillStyle = "#475569";
       ctx.fillRect(-20, -20, 40, 40);
 
@@ -1122,7 +1005,7 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.arc(3.5, 2.5, 0.7, 0, Math.PI * 2);
       ctx.fill();
     } else if (isMage) {
-      // Mage: Occult Runes & Bone Talisman Chest Piece
+      // Mage: Occult Runes & Bone Talisman Chest Piece (Lineless)
       ctx.fillStyle = "#4c1d95";
       ctx.fillRect(-20, -20, 40, 40);
 
@@ -1132,8 +1015,8 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
       // Bone Talisman on Chest
       if (isFrontView) {
-        ctx.strokeStyle = "#fef3c7";
-        ctx.lineWidth = 0.8;
+        ctx.strokeStyle = "rgba(254, 243, 199, 0.8)";
+        ctx.lineWidth = 0.7;
         ctx.beginPath();
         ctx.moveTo(-2.8, -5.2); ctx.lineTo(0, -3.2); ctx.lineTo(2.8, -5.2);
         ctx.stroke();
@@ -1144,20 +1027,17 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.fill();
       }
     } else if (isArcher) {
-      // Archer: Hunting Leather Harness & Quiver Strap
+      // Archer: Hunting Leather Harness & Quiver Strap (Lineless)
       ctx.fillStyle = "#3b2314";
       ctx.fillRect(-20, -20, 40, 40);
 
       // Cross-Body Leather Strap
       ctx.fillStyle = "#271003";
-      ctx.strokeStyle = "#d97706";
-      ctx.lineWidth = 0.6;
       ctx.beginPath();
       ctx.moveTo(-7.0, -7.0); ctx.lineTo(7.0, 5.0);
       ctx.lineTo(5.0, 7.0);   ctx.lineTo(-9.0, -5.0);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Belt
       ctx.fillStyle = "#1e1008";
@@ -1165,9 +1045,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     }
 
     ctx.restore(); // End Apparel Clip
-
-    buildTorsoPath();
-    ctx.stroke();
   }
 
   ctx.restore(); // End Torso
@@ -1213,11 +1090,8 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     const notchInnerY = earTipY + 3.4;
 
     ctx.fillStyle = isShadowPass ? "#000000" : skinBase;
-    ctx.strokeStyle = isShadowPass ? "#000000" : skinOutline;
-    ctx.lineWidth = 1.3;
-    ctx.lineJoin = "round";
 
-    // 1. Outer Cartilage Blade with Iconic Feral Notch
+    // 1. Outer Cartilage Blade with Iconic Feral Notch (Lineless)
     ctx.beginPath();
     ctx.moveTo(rootUpperX, rootUpperY);
     ctx.quadraticCurveTo(headX + earSign * (earSpreadX * 0.52), headY - 7.8, earTipX, earTipY);
@@ -1228,9 +1102,7 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     ctx.fill();
 
     if (!isShadowPass) {
-      ctx.stroke();
-
-      // 2. Deep Shaded Inner Pinna & Cartilage Ridge
+      // 2. Deep Shaded Inner Pinna & Cartilage Ridge (Lineless)
       if (isFrontView || isProfileView) {
         ctx.fillStyle = innerEar;
         ctx.beginPath();
@@ -1241,9 +1113,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.closePath();
         ctx.fill();
 
-        // Delicate Cartilage Fold Line
-        ctx.strokeStyle = skinDark;
-        ctx.lineWidth = 0.8;
+        // Delicate Cartilage Fold Line (Soft Subtle Accent)
+        ctx.strokeStyle = isSlowed ? "rgba(2, 132, 199, 0.4)" : "rgba(16, 60, 25, 0.4)";
+        ctx.lineWidth = 0.6;
         ctx.beginPath();
         ctx.moveTo(rootUpperX + earSign * 2.0, rootUpperY + 1.4);
         ctx.quadraticCurveTo(headX + earSign * (earSpreadX * 0.42), headY - 3.2, earTipX - earSign * 4.6, earTipY + 2.6);
@@ -1255,12 +1127,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       if (isThisEarringEar) {
         const ringX = notchOuterX + (earSign * 0.6);
         const ringY = notchOuterY + 0.6;
-        ctx.strokeStyle = "#b45309";
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.arc(ringX, ringY, 1.6, 0, Math.PI * 2);
-        ctx.stroke();
-
         ctx.strokeStyle = "#fbbf24";
         ctx.lineWidth = 1.0;
         ctx.beginPath();
@@ -1288,14 +1154,11 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     drawBatEar(false);
   }
 
-  // Bare Sculpted Goblin Cranium
+  // Bare Sculpted Goblin Cranium (Lineless)
   ctx.fillStyle = isShadowPass ? "#000000" : skinBase;
-  ctx.strokeStyle = isShadowPass ? "#000000" : skinOutline;
-  ctx.lineWidth = 1.3;
   ctx.beginPath();
   ctx.ellipse(headX, headY, 7.8, 7.0, headTilt, 0, Math.PI * 2);
   ctx.fill();
-  if (!isShadowPass) ctx.stroke();
 
   if (!isShadowPass) {
     // Warty freckles on cheekbones
@@ -1308,9 +1171,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     // Directional Face across 8 Directions with Hooked Snout & Needle Underbite
     if (isFrontView || isProfileView) {
       const drawEye = (ex, ey, isProfile = false) => {
-        // Furrowed sinister brow line
-        ctx.strokeStyle = skinDark;
-        ctx.lineWidth = 0.9;
+        // Furrowed sinister brow line (Soft Subtle Line)
+        ctx.strokeStyle = isSlowed ? "rgba(2, 132, 199, 0.5)" : "rgba(16, 60, 25, 0.5)";
+        ctx.lineWidth = 0.6;
         ctx.beginPath();
         ctx.moveTo(ex - 1.8, ey - 2.0);
         ctx.lineTo(ex + 1.8, ey - 1.5);
@@ -1341,9 +1204,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         drawEye(headX - 2.6, headY - 1.0);
         drawEye(headX + 2.6, headY - 1.0);
 
-        // Defined Hooked Snout Nasal Ridge
-        ctx.strokeStyle = skinDark;
-        ctx.lineWidth = 0.8;
+        // Defined Hooked Snout Nasal Ridge (Soft Line)
+        ctx.strokeStyle = isSlowed ? "rgba(2, 132, 199, 0.4)" : "rgba(16, 60, 25, 0.4)";
+        ctx.lineWidth = 0.6;
         ctx.beginPath();
         ctx.moveTo(headX, headY - 0.6);
         ctx.lineTo(headX, headY + 1.2);
@@ -1356,9 +1219,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.ellipse(headX + 0.9, headY + 1.5, 0.38, 0.65, 0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Front Snarl, Dual Ivory Tusks & Needle Teeth
-        ctx.strokeStyle = "#052e16";
-        ctx.lineWidth = 1.3;
+        // Front Snarl, Dual Ivory Tusks & Needle Teeth (Soft Lip Line)
+        ctx.strokeStyle = isSlowed ? "rgba(2, 132, 199, 0.6)" : "rgba(5, 46, 22, 0.6)";
+        ctx.lineWidth = 0.7;
         ctx.beginPath();
         ctx.arc(headX, headY + 4.0, 2.8, 0.1, Math.PI - 0.1, false);
         ctx.stroke();
@@ -1383,12 +1246,12 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
           drawEye(headX - cfg.flip * 1.4, headY - 1.0, true);
         }
 
-        // Pointy Hooked Snout Contour
+        // Pointy Hooked Snout Contour (Soft Line)
         const snoutTipX = headX + cfg.flip * (isProfileView ? 4.6 : 3.8);
         const snoutTipY = headY + 1.4;
 
-        ctx.strokeStyle = skinDark;
-        ctx.lineWidth = 0.9;
+        ctx.strokeStyle = isSlowed ? "rgba(2, 132, 199, 0.45)" : "rgba(16, 60, 25, 0.45)";
+        ctx.lineWidth = 0.6;
         ctx.beginPath();
         ctx.moveTo(headX + cfg.flip * 1.8, headY - 0.4);
         ctx.quadraticCurveTo(snoutTipX + cfg.flip * 0.8, snoutTipY - 0.8, snoutTipX, snoutTipY);
@@ -1401,11 +1264,11 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.ellipse(snoutTipX - cfg.flip * 0.8, snoutTipY + 0.2, 0.42, 0.7, cfg.flip * 0.3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Sleek Jawline Snarl & Underbite Tusks
+        // Sleek Jawline Snarl & Underbite Tusks (Soft Lip Line)
         const mouthX = headX + cfg.flip * 1.4;
         const mouthY = headY + 3.8;
-        ctx.strokeStyle = "#052e16";
-        ctx.lineWidth = 1.3;
+        ctx.strokeStyle = isSlowed ? "rgba(2, 132, 199, 0.6)" : "rgba(5, 46, 22, 0.6)";
+        ctx.lineWidth = 0.7;
         ctx.beginPath();
         ctx.arc(mouthX, mouthY, 2.5, 0.1, Math.PI - 0.1, false);
         ctx.stroke();
@@ -1425,11 +1288,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       }
     }
 
-    // Archetype Headwear
+    // Archetype Headwear (Lineless)
     if (isKing) {
       ctx.fillStyle = "#f59e0b";
-      ctx.strokeStyle = "#b45309";
-      ctx.lineWidth = 1.1;
       ctx.beginPath();
       ctx.moveTo(headX - 6.2, headY - 3.4);
       ctx.lineTo(headX - 5.2, headY - 9.2);
@@ -1440,7 +1301,6 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.lineTo(headX + 6.2, headY - 3.4);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       if (!isBackView) {
         ctx.fillStyle = "#e11d48";
@@ -1449,18 +1309,15 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.fill();
       }
     } else if (isThief) {
-      // Thief: Dark Hood / Cowl
+      // Thief: Dark Hood / Cowl (Lineless)
       ctx.fillStyle = "#1e293b";
-      ctx.strokeStyle = "#0f172a";
-      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.arc(headX, headY - 1.8, 8.4, Math.PI * 0.72, Math.PI * 2.28, false);
       ctx.lineTo(headX - cfg.flip * 7.8, headY - 5.8);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
     } else if (isWarrior) {
-      // Warrior / Brute: Spiked War Helmet with Crest & Visor Slit
+      // Warrior / Brute: Spiked War Helmet with Crest & Visor Slit (Lineless)
       const plumeWave = Math.sin(nowMs * 0.008 + seed) * 2.0;
       ctx.fillStyle = isBrute ? "#7f1d1d" : "#dc2626";
       ctx.beginPath();
@@ -1472,13 +1329,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
       // Iron Dome
       ctx.fillStyle = "#475569";
-      ctx.strokeStyle = "#1e293b";
-      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.arc(headX, headY - 2.0, 8.0, Math.PI * 0.85, Math.PI * 2.15, false);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Reinforced Iron Browband
       ctx.fillStyle = "#334155";
@@ -1501,20 +1355,17 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         }
       }
     } else if (isMage) {
-      // Mage: Occult Cowl & Gold Runic Trim
+      // Mage: Occult Cowl & Gold Runic Trim (Lineless)
       ctx.fillStyle = "#4c1d95";
-      ctx.strokeStyle = "#2e1065";
-      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.arc(headX, headY - 1.6, 8.2, Math.PI * 0.75, Math.PI * 2.25, false);
       ctx.lineTo(headX - cfg.flip * 7.6, headY - 6.2);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
 
       // Golden Runic Hem Trim
-      ctx.strokeStyle = "#fbbf24";
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = "rgba(251, 191, 36, 0.8)";
+      ctx.lineWidth = 0.7;
       ctx.beginPath();
       ctx.arc(headX, headY - 1.6, 8.2, Math.PI * 0.82, Math.PI * 2.18, false);
       ctx.stroke();

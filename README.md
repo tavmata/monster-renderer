@@ -2,6 +2,10 @@
 
 High-performance, lineless procedural monster, mob, boss and creature renderer built for HTML5 Canvas.
 
+## Core Rendering Rules
+
+- **Never Render Solid Shadow Circles**: Never draw solid, flat, semi-solid, or artificial circular/elliptical ground shadows beneath monsters. Monsters must never have baked-in dark circular discs under them attempting to emulate shadows. Environmental and ground contact shadows belong exclusively to the game world or terrain lighting layer, not baked into entity sprite renderers.
+
 ## Features
 
 - **Pure Lineless Digital Painting**: Zero black vector outlines, 100% volumetric gradients, organic specular glints, ambient occlusion, and rim lighting.

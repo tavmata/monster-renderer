@@ -18,10 +18,6 @@ function drawProceduralHumanoidMob(ctx, ent, type, mobClass, mobColor, isElite, 
   ctx.rotate(facingAngle * 0.15);
 
   if (isShadowPass) {
-    ctx.beginPath();
-    ctx.ellipse(0, 16, 12, 5, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.fill();
     ctx.restore();
     return;
   }
@@ -151,6 +147,7 @@ function drawProceduralHumanoidMob(ctx, ent, type, mobClass, mobColor, isElite, 
 }
 
 export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
+  if (isShadowPass) return;
   const type = ent.type || "monster";
   if (ent._seed === undefined) {
     // Bolt Opt: String Allocation Elimination - Replaced parseInt and .substring with zero-allocation computeFastSeed
@@ -243,17 +240,8 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
     const moveWave = Math.sin(now * 0.016 + seed);
 
     if (isShadowPass) {
-      ctx.beginPath();
-      ctx.ellipse(0, 10, r * 1.1, r * 0.45, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-      ctx.fill();
+      return;
     } else {
-      // Ground Shadow
-      ctx.beginPath();
-      ctx.ellipse(0, 10, r * 1.1, r * 0.45, 0, 0, Math.PI * 2);
-      ctx.fillStyle = isBoss ? "rgba(74, 4, 78, 0.35)" : "rgba(0, 0, 0, 0.28)";
-      ctx.fill();
-
       // Boss Noxious Miasma Aura
       if (isBoss) {
         const miasmaGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, r * 1.7);
@@ -414,17 +402,8 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
     const revRot = -now * 0.0018 + seed;
 
     if (isShadowPass) {
-      ctx.beginPath();
-      ctx.ellipse(0, 16, r * 1.1, r * 0.45, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
-      ctx.fill();
+      return;
     } else {
-      // Fiery Ground Shadow / Lava Pool
-      ctx.beginPath();
-      ctx.ellipse(0, 16, r * 1.1, r * 0.45, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(220, 38, 38, 0.25)";
-      ctx.fill();
-
       // Heatwave Aura Glow
       const glowGrad = ctx.createRadialGradient(0, -2, 2, 0, -2, r * 1.8 + pulse);
       glowGrad.addColorStop(0, "rgba(255, 235, 59, 0.55)");
@@ -518,17 +497,8 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
     const revRot = -now * 0.0016 + seed;
 
     if (isShadowPass) {
-      ctx.beginPath();
-      ctx.ellipse(0, 16, r * 1.1, r * 0.45, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
-      ctx.fill();
+      return;
     } else {
-      // Ground Frost Pool
-      ctx.beginPath();
-      ctx.ellipse(0, 16, r * 1.1, r * 0.45, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(56, 189, 248, 0.22)";
-      ctx.fill();
-
       // Freezing Blizzard Radial Aura Glow
       const frostGlow = ctx.createRadialGradient(0, -2, 2, 0, -2, r * 1.8 + pulse);
       frostGlow.addColorStop(0, "rgba(224, 242, 254, 0.65)");
@@ -613,17 +583,8 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
     const breathe = Math.sin(nowMs * 0.004 + seed) * 1.5;
 
     if (isShadowPass) {
-      ctx.beginPath();
-      ctx.ellipse(0, 16, r * 1.3, r * 0.7, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
-      ctx.fill();
+      return;
     } else {
-      // Arcane Web Shadow Aura
-      ctx.beginPath();
-      ctx.ellipse(0, 16, r * 1.3, r * 0.7, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(168, 85, 247, 0.2)";
-      ctx.fill();
-
       // Crystalline Spider Legs (4 pairs)
       ctx.save();
       for (let side of [-1, 1]) {
@@ -723,10 +684,7 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
     const breathe = Math.sin(now * 0.003 + seed) * 2;
 
     if (isShadowPass) {
-      ctx.beginPath();
-      ctx.ellipse(0, 20, r * 1.3, r * 0.55, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.fill();
+      return;
     } else {
       // Blizzard Ground Rune Circle
       ctx.save();
@@ -848,17 +806,8 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
     const breathe = Math.sin(now * 0.0035 + seed) * 1.5;
 
     if (isShadowPass) {
-      ctx.beginPath();
-      ctx.ellipse(0, 18, r * 1.25, r * 0.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.fill();
+      return;
     } else {
-      // Lava Pool Shadow
-      ctx.beginPath();
-      ctx.ellipse(0, 18, r * 1.25, r * 0.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(220, 38, 38, 0.35)";
-      ctx.fill();
-
       ctx.save();
       // Main Basalt Monolith Torso
       ctx.fillStyle = "#18181b";
@@ -955,18 +904,9 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
     const pulse = Math.sin(now * 0.005 + seed) * 3;
 
     if (isShadowPass) {
-      ctx.beginPath();
-      ctx.ellipse(0, 18, r * 1.2, r * 0.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.fill();
+      return;
     } else {
       ctx.save();
-      // Cosmic Void Rift Shadow
-      ctx.beginPath();
-      ctx.ellipse(0, 18, r * 1.2, r * 0.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(107, 33, 168, 0.35)";
-      ctx.fill();
-
       // Writhing Shadowy Tentacles
       ctx.strokeStyle = "#3b0764";
       ctx.lineWidth = 3.5;
@@ -1044,10 +984,7 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
     const breathe = Math.sin(now * 0.005 + seed) * 2;
 
     if (isShadowPass) {
-      ctx.beginPath();
-      ctx.ellipse(0, 18, r * 1.2, r * 0.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
-      ctx.fill();
+      return;
     } else {
       ctx.save();
       // Swirling Foaming Aquatic Whirlpool Pool

@@ -1,4 +1,10 @@
 // monster.js - Master Monster Renderer Dispatcher
+/**
+ * CORE DESIGN RULE: NEVER RENDER SOLID SHADOW CIRCLES
+ * Never draw solid or flat circle/ellipse ground shadows beneath monsters.
+ * Monsters must never have baked-in dark circular shapes emulating ground shadows.
+ * All artificial solid ground shadow discs are strictly prohibited across all monster renderers.
+ */
 import { drawSlimeEntity } from './slimes.js';
 import { drawWolfEntity } from './wolves.js';
 import { drawFrostTrollEntity, drawFrostTroll } from './trolls.js';
@@ -14,10 +20,10 @@ import { drawEntityHP, getMobUiOffsets } from './mobUi.js';
  * @param {number} x - Screen or World X
  * @param {number} y - Screen or World Y
  * @param {Object} ent - Entity state object
- * @param {boolean} isShadowPass - Shadow pass flag
+ * @param {boolean} isShadowPass - Shadow pass flag (prohibited from drawing solid shadows)
  */
 export function drawMonster(ctx, x, y, ent, isShadowPass = false) {
-  if (!ent) return;
+  if (!ent || isShadowPass) return;
   const type = (ent.type || "").toLowerCase();
 
   if (type === "slime" || type.startsWith("slime_") || type.includes("slime")) {

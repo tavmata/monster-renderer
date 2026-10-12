@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>2D Procedural Monster Renderer Studio</title>
   <meta name="description" content="Interactive visual testing studio for 2MMORPG procedural lineless monsters, mobs, bosses, and creatures.">
+  <meta property="og:title" content="2D Procedural Monster Renderer Studio">
+  <meta property="og:description" content="Interactive visual testing studio for 2MMORPG procedural lineless monsters, mobs, bosses, and creatures.">
   <style>
     :root {
       --bg-primary: #0b1120;
@@ -323,9 +325,23 @@
           <input type="checkbox" id="chkSlowed">
         </label>
         <label class="toggle-row">
+          <span>Slime Trail Puddles</span>
+          <input type="checkbox" id="chkPuddles" checked>
+        </label>
+        <label class="toggle-row">
+          <span>Slime Landing Ripples</span>
+          <input type="checkbox" id="chkRipples" checked>
+        </label>
+        <label class="toggle-row">
           <span>Draw Health Nameplate</span>
           <input type="checkbox" id="chkHpBar" checked>
         </label>
+      </div>
+
+      <!-- Slime Hop Height -->
+      <div class="control-group">
+        <label for="hopSlider">Slime Hop Height <span class="slider-val" id="hopVal">1.0x</span></label>
+        <input type="range" id="hopSlider" min="0.4" max="1.8" step="0.1" value="1.0" oninput="onHopInput(this.value)">
       </div>
     </div>
   </div>
@@ -377,7 +393,9 @@
         { label: "Grey Forest Wolf", val: "wolf" },
         { label: "Dire Wolf (Spine Fur Mantle)", val: "dire_wolf" },
         { label: "Blood Fang Alpha Wolf", val: "alpha_wolf" },
-        { label: "Frost White Wolf", val: "arctic_wolf" }
+        { label: "Frost White Wolf", val: "arctic_wolf" },
+        { label: "The Wolf King (Boss)", val: "boss_wolf" },
+        { label: "Corrupted Void Wolf", val: "corrupted_wolf" }
       ],
       frost_troll: [
         { label: "Ancient Frost Troll", val: "frost_troll" },
@@ -446,6 +464,10 @@
     window.onHpInput = (val) => {
       state.hp = parseInt(val, 10);
       document.getElementById('hpPercent').innerText = state.hp + "%";
+    };
+
+    window.onHopInput = (val) => {
+      document.getElementById('hopVal').innerText = parseFloat(val).toFixed(1) + "x";
     };
 
     window.triggerAttack = () => {
@@ -526,6 +548,9 @@
         lastHitTime: state.flashTime,
         attackStart: state.attackTime,
         lastAttackTime: state.attackTime,
+        showPuddles: document.getElementById('chkPuddles') ? document.getElementById('chkPuddles').checked : true,
+        showRipples: document.getElementById('chkRipples') ? document.getElementById('chkRipples').checked : true,
+        hopIntensity: parseFloat(document.getElementById('hopSlider')?.value || "1.0"),
         currentCast: state.isAttacking ? {
           progress: Math.min(1, (now - state.attackTime) / 500),
           duration: 500,

@@ -12,6 +12,7 @@ import { computeFastSeed, safeCreateRadialGradient } from './helpers.js';
  * - Invariant spatial weak point mapping (head at Y ≈ -9px on r=26)
  */
 export function drawFrostTrollEntity(ctx, x, y, ent, isShadowPass = false) {
+  if (isShadowPass) return;
   if (!ent) ent = {};
   const type = ent.type || "frost_troll";
   const isSlowed = !!ent.isSlowed;
@@ -189,10 +190,6 @@ export function drawFrostTrollEntity(ctx, x, y, ent, isShadowPass = false) {
   // 1. Ground Ambient Occlusion & Sub-Zero Frost Pool
   // -------------------------------------------------------------
   if (isShadowPass) {
-    ctx.beginPath();
-    ctx.ellipse(x + lungeX, y + lungeY + 15 * scale, r * 1.35 * scale * squashX, r * 0.55 * scale * squashY, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(4, 10, 20, 0.45)";
-    ctx.fill();
     return;
   }
 
@@ -200,65 +197,7 @@ export function drawFrostTrollEntity(ctx, x, y, ent, isShadowPass = false) {
   ctx.translate(x + lungeX, y + lungeY - bounce * scale);
   ctx.scale(scale * squashX, scale * squashY);
 
-  // Ground Contact Shadows & Frost Pool
-  const shadowGrd = ctx.createRadialGradient(0, 15, 2, 0, 15, r * 1.45);
-  shadowGrd.addColorStop(0, "rgba(4, 12, 24, 0.55)");
-  shadowGrd.addColorStop(0.5, "rgba(8, 24, 44, 0.30)");
-  shadowGrd.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = shadowGrd;
-  ctx.beginPath();
-  ctx.ellipse(0, 15, r * 1.45, r * 0.58, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  const frostPoolGrd = ctx.createRadialGradient(0, 15, 0, 0, 15, r * 1.55);
-  frostPoolGrd.addColorStop(0, "rgba(186, 230, 253, 0.25)");
-  frostPoolGrd.addColorStop(0.6, "rgba(56, 189, 248, 0.12)");
-  frostPoolGrd.addColorStop(1, "rgba(56, 189, 248, 0)");
-  ctx.fillStyle = frostPoolGrd;
-  ctx.beginPath();
-  ctx.ellipse(0, 15, r * 1.55, r * 0.60, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Creeping frost dendrite spurs
-  ctx.fillStyle = "rgba(224, 242, 254, 0.38)";
-  for (let i = 0; i < 6; i++) {
-    const angle = (i / 6) * Math.PI * 2 + (seed % 1);
-    const dist = r * 0.95 + ((seed * (i + 1) * 31) % 8);
-    const dx = Math.cos(angle) * dist;
-    const dy = 15 + Math.sin(angle) * (dist * 0.42);
-    ctx.beginPath();
-    ctx.moveTo(dx * 0.7, dy * 0.7);
-    ctx.lineTo(dx, dy);
-    ctx.lineTo(dx * 0.85 + 2, dy * 0.85);
-    ctx.fill();
-  }
-
-  // Glacial Slam Ground Shockwave VFX (when slamming)
-  if (isAttacking && attackProgress >= 0.28 && attackProgress <= 0.80) {
-    const slamT = (attackProgress - 0.28) / 0.52;
-    const shockRad = slamT * 32.0;
-    const shockAlpha = Math.sin(slamT * Math.PI) * 0.65;
-    ctx.fillStyle = `rgba(56, 189, 248, ${shockAlpha * 0.35})`;
-    ctx.beginPath();
-    ctx.ellipse(0, 15, shockRad * 1.4, shockRad * 0.65, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Jagged erupted ice shards
-    ctx.fillStyle = `rgba(224, 242, 254, ${shockAlpha * 0.85})`;
-    for (let k = 0; k < 5; k++) {
-      const kAngle = (k / 5) * Math.PI * 2 + 0.3;
-      const kDist = shockRad * 0.9;
-      const kx = Math.cos(kAngle) * kDist;
-      const ky = 15 + Math.sin(kAngle) * (kDist * 0.45);
-      ctx.beginPath();
-      ctx.moveTo(kx, ky);
-      ctx.lineTo(kx - 3, ky - 8 * (1 - slamT * 0.5));
-      ctx.lineTo(kx + 2, ky - 10 * (1 - slamT * 0.5));
-      ctx.lineTo(kx + 4, ky);
-      ctx.closePath();
-      ctx.fill();
-    }
-  }
+  // Ground circles and shadow circles removed per design rule
 
   // -------------------------------------------------------------
   // Leg Drawing Helper (Digitigrade / Knuckle-Stride)
