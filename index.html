@@ -266,13 +266,13 @@
       <div class="control-group">
         <label for="mobType">Monster Family</label>
         <select id="mobType" onchange="onMonsterFamilyChange(this.value)">
+          <option value="spider">Giant Cave Spider (Multi-Leg Stepping)</option>
+          <option value="skeleton">Skeleton (Samba Carnaval)</option>
           <option value="slime">Organic Slime (Soft-Body Wobble)</option>
           <option value="wolf">Wolf / Canine (Digitigrade Quadruped)</option>
-          <option value="frost_troll">Frost Troll (8-Dir Octagonal Kinematics)</option>
+          <option value="frost_troll" selected>Frost Troll (8-Dir Octagonal Kinematics)</option>
           <option value="goblin">Goblin Infantry (8-Dir Armed Stance)</option>
-          <option value="skeleton">Skeleton Warrior (Generic Undead)</option>
-          <option value="spider">Giant Cave Spider (Multi-Leg Stepping)</option>
-          <option value="boss_void">Void Terror (Monolithic Boss)</option>
+          <option value="boss_void">Void Terror (Eldritch Cosmic Singularity)</option>
         </select>
       </div>
 
@@ -302,6 +302,18 @@
         <input type="range" id="hpSlider" min="0" max="100" value="100" oninput="onHpInput(this.value)">
       </div>
 
+      <!-- Life Bar Height -->
+      <div class="control-group">
+        <label for="hpOffsetSlider">Life Bar Height <span class="slider-val" id="hpOffsetVal">Auto (64px)</span></label>
+        <input type="range" id="hpOffsetSlider" min="0" max="130" step="2" value="0" oninput="onHpOffsetInput(this.value)">
+      </div>
+
+      <!-- Samba Rhythm BPM (Batucada Tempo) -->
+      <div class="control-group" id="sambaBpmGroup">
+        <label for="sambaBpmSlider">Samba Batucada Tempo <span class="slider-val" id="bpmVal">124 BPM</span></label>
+        <input type="range" id="sambaBpmSlider" min="90" max="160" step="2" value="124" oninput="onBpmInput(this.value)">
+      </div>
+
       <!-- Actions & Toggles -->
       <div class="control-group">
         <label>Actions & States</label>
@@ -309,13 +321,29 @@
           <button onclick="triggerAttack()">Attack</button>
           <button class="btn-secondary" onclick="triggerHitFlash()">Hit Flash</button>
         </div>
-        <div style="margin-top: 6px;">
-          <button class="btn-secondary" style="width: 100%; border-color: var(--accent-rose); color: var(--accent-rose);" onclick="triggerLimbExplosion()">Trigger Death Explosion</button>
+        <div class="btn-row" id="archerBtnRow" style="margin-top: 6px;">
+          <button style="background: #166534;" onclick="triggerShootArrow()">Shoot Arrow</button>
+          <button class="btn-secondary" style="border-color: #22c55e; color: #4ade80;" onclick="triggerArrowVolley()">Triple Volley</button>
+        </div>
+        <div class="btn-row" id="trollBtnRow" style="margin-top: 6px; display: none;">
+          <button style="background: #0284c7;" onclick="triggerGlacialSlam()">Glacial Slam</button>
+          <button class="btn-secondary" style="border-color: #38bdf8; color: #38bdf8;" onclick="triggerBlizzardRoar()">Blizzard Roar</button>
+        </div>
+        <div class="btn-row" style="margin-top: 6px;">
+          <button class="btn-secondary" style="border-color: #a855f7; color: #c084fc;" onclick="triggerVoidCataclysm()">Void Nova</button>
+          <button class="btn-secondary" style="border-color: var(--accent-rose); color: var(--accent-rose);" onclick="triggerLimbExplosion()">Death Explosion</button>
+        </div>
+        <div class="btn-row" style="margin-top: 6px;">
+          <button class="btn-secondary" style="border-color: var(--accent-amber); color: var(--accent-amber); grid-column: span 2;" onclick="triggerConfettiFiesta()">Confetti Fiesta</button>
         </div>
       </div>
 
       <div class="control-group">
         <label>Kinematic Flags</label>
+        <label class="toggle-row" id="glassToggleRow">
+          <span>Glass Visual Effect (Vitreous Ice)</span>
+          <input type="checkbox" id="chkGlass" checked>
+        </label>
         <label class="toggle-row">
           <span>Walking Gait / Moving</span>
           <input type="checkbox" id="chkMoving" checked>
@@ -323,6 +351,10 @@
         <label class="toggle-row">
           <span>Slowed Effect (Frost Chill)</span>
           <input type="checkbox" id="chkSlowed">
+        </label>
+        <label class="toggle-row" id="autoFireToggleRow">
+          <span>Auto-Fire Rapid Volley</span>
+          <input type="checkbox" id="chkAutoFire">
         </label>
         <label class="toggle-row">
           <span>Slime Trail Puddles</span>
@@ -338,6 +370,12 @@
         </label>
       </div>
 
+      <!-- Glass Refraction & Sheen Slider -->
+      <div class="control-group" id="glassControlGroup">
+        <label for="glassSlider">Glass Refraction & Sheen <span class="slider-val" id="glassVal">85%</span></label>
+        <input type="range" id="glassSlider" min="10" max="100" value="85" oninput="onGlassInput(this.value)">
+      </div>
+
       <!-- Slime Hop Height -->
       <div class="control-group">
         <label for="hopSlider">Slime Hop Height <span class="slider-val" id="hopVal">1.0x</span></label>
@@ -349,13 +387,26 @@
   <script type="module">
     import {
       drawMonster,
+      drawSpiderEntity,
       drawSlimeEntity,
       drawWolfEntity,
       drawFrostTrollEntity,
       drawGoblinEntity,
+      drawSkeletonEntity,
       drawGenericMob,
       drawEntityHP,
-      triggerWolfDeathLimbExplosion
+      getMobUiOffsets,
+      triggerSpiderDeathExplosion,
+      triggerWolfDeathLimbExplosion,
+      triggerSkeletonDeathExplosion,
+      triggerVoidDeathExplosion,
+      triggerFrostTrollDeathExplosion,
+      shootGoblinArrow,
+      shootGoblinArrowVolley,
+      updateGoblinArrows,
+      drawGoblinArrows,
+      clearGoblinArrows,
+      goblinArrows
     } from './src/index.js';
 
     window.GameState = window.GameState || { combatAnimations: [], myId: "preview_mob" };
@@ -382,6 +433,20 @@
     };
 
     const VARIANTS = {
+      spider: [
+        { label: "Giant Cave Spider (Subterranean Obsidian Chitin)", val: "giant_cave_spider" },
+        { label: "Venomous Broodmother (Bloated Egg Sac Boss)", val: "boss_broodmother" },
+        { label: "Crystalline Cave Weaver (Amethyst Facets & Prisms)", val: "boss_crystal_weaver" },
+        { label: "Armored Toxic Tarantula (Barbed Setae & Heavy Fangs)", val: "toxic_tarantula" },
+        { label: "Void Shadow Stalker (Abyssal Chitin & Bioluminescence)", val: "void_stalker" }
+      ],
+      skeleton: [
+        { label: "Samba Passista Skeleton (Carnaval Headdress & Pandeiro)", val: "skeleton" },
+        { label: "Mestre de Bateria Skeleton (Conductor Batons & Tricolor Plumes)", val: "skeleton_mestre" },
+        { label: "Samba Malandro Skeleton (Panama Hat & Cane Swagger)", val: "skeleton_malandro" },
+        { label: "Guerreiro do Sambodromo (Golden Guard & Shield Pandeiro)", val: "elite_knight" },
+        { label: "Rei Momo dos Ossos (Carnival Skeleton King Boss)", val: "boss_samba_king" }
+      ],
       slime: [
         { label: "Forest Green Slime", val: "slime" },
         { label: "Toxic Acid Slime", val: "toxic_slime" },
@@ -398,8 +463,12 @@
         { label: "Corrupted Void Wolf", val: "corrupted_wolf" }
       ],
       frost_troll: [
-        { label: "Ancient Frost Troll", val: "frost_troll" },
-        { label: "Glacial Berserker", val: "glacial_troll" }
+        { label: "Vitreous Glass Frost Troll (Prismatic Crystal)", val: "glass_troll" },
+        { label: "Jotunn Frost Giant (Colossal Glacial Titan)", val: "jotunn" },
+        { label: "Jotunn Giant Chieftain (Glacial Horns & Blizzard Aura)", val: "boss_frost_giant" },
+        { label: "Ancient Frost Troll (Permafrost Knuckles)", val: "frost_troll" },
+        { label: "Glacial Berserker (Ice Spiked Pauldron & Frozen Maul)", val: "glacial_troll" },
+        { label: "Crystalline Frost Colossus (Translucent Prisms & Runic Core)", val: "crystal_troll" }
       ],
       goblin: [
         { label: "Goblin Scout (Dagger)", val: "goblin" },
@@ -407,17 +476,13 @@
         { label: "Goblin Archer", val: "goblin_archer" },
         { label: "Goblin Chieftain", val: "boss_goblin" }
       ],
-      skeleton: [
-        { label: "Skeletal Soldier", val: "skeleton" },
-        { label: "Undead Crypt Knight", val: "elite_knight" }
-      ],
-      spider: [
-        { label: "Cave Weaver Spider", val: "spider" },
-        { label: "Venomous Broodmother", val: "boss_crystal_weaver" }
-      ],
       boss_void: [
-        { label: "Void Terror Leviathan", val: "boss_void_terror" },
-        { label: "Obsidian Golem", val: "boss_obsidian_golem" }
+        { label: "Void Terror Leviathan (Event Horizon Singularity & 10 Tentacles)", val: "boss_void_terror" },
+        { label: "Void Terror Brood (Abyssal Cosmic Horror)", val: "void_terror" },
+        { label: "Astral Devourer (Barbed Scythe Tendrils & Razor Maw)", val: "void_devourer" },
+        { label: "Eldritch Null-Gazer (All-Seeing Cosmic Eye & Psionic Rings)", val: "void_null_gazer" },
+        { label: "Void Shadow Stalker (Abyssal Chitin & Bioluminescence)", val: "void_stalker" },
+        { label: "Void Skitterer Spawn (Agile Abyssal Minion)", val: "void_spawn" }
       ]
     };
 
@@ -425,16 +490,49 @@
     const ctx = canvas.getContext('2d');
 
     const state = {
-      family: "slime",
-      type: "slime",
+      family: "frost_troll",
+      type: "jotunn",
       angle: 0,
       scale: 2.0,
       hp: 100,
       maxHp: 100,
+      sambaBpm: 124,
+      customHpOffset: 0,
       isAttacking: false,
+      isBreathingFrost: false,
       attackTime: 0,
       flashTime: 0,
       seed: 42
+    };
+
+    function updateHpOffsetLabel() {
+      const autoVal = getMobUiOffsets({ type: state.type }).hpOffset;
+      const lbl = document.getElementById('hpOffsetVal');
+      if (lbl) {
+        lbl.innerText = state.customHpOffset === 0 ? "Auto (" + autoVal + "px)" : state.customHpOffset + "px";
+      }
+    }
+
+    function updateArcherControls() {
+      const isArcher = state.type.includes('archer');
+      const archerRow = document.getElementById('archerBtnRow');
+      const autoFireRow = document.getElementById('autoFireToggleRow');
+      if (archerRow) archerRow.style.display = isArcher ? "grid" : "none";
+      if (autoFireRow) autoFireRow.style.display = isArcher ? "flex" : "none";
+
+      const isTroll = state.family === "frost_troll" || state.type.includes("troll") || state.type.includes("jotunn") || state.type.includes("giant");
+      const trollRow = document.getElementById('trollBtnRow');
+      if (trollRow) trollRow.style.display = isTroll ? "grid" : "none";
+
+      const glassGroup = document.getElementById('glassControlGroup');
+      const glassToggle = document.getElementById('glassToggleRow');
+      if (glassGroup) glassGroup.style.display = isTroll ? "flex" : "none";
+      if (glassToggle) glassToggle.style.display = isTroll ? "flex" : "none";
+    }
+
+    window.onGlassInput = (val) => {
+      const lbl = document.getElementById('glassVal');
+      if (lbl) lbl.innerText = val + "%";
     };
 
     window.onMonsterFamilyChange = (fam) => {
@@ -442,11 +540,21 @@
       updateVariantDropdown(fam);
       state.type = VARIANTS[fam][0].val;
       document.getElementById('hudEntType').innerText = VARIANTS[fam][0].label;
+      const bpmGroup = document.getElementById('sambaBpmGroup');
+      if (bpmGroup) {
+        bpmGroup.style.display = (fam === "skeleton") ? "flex" : "none";
+      }
+      updateHpOffsetLabel();
+      updateArcherControls();
     };
 
     window.onVariantChange = (v) => {
       state.type = v;
-      document.getElementById('hudEntType').innerText = v;
+      const curList = VARIANTS[state.family] || [];
+      const match = curList.find(item => item.val === v);
+      document.getElementById('hudEntType').innerText = match ? match.label : v;
+      updateHpOffsetLabel();
+      updateArcherControls();
     };
 
     window.onAngleInput = (rad) => {
@@ -466,12 +574,66 @@
       document.getElementById('hpPercent').innerText = state.hp + "%";
     };
 
+    window.onHpOffsetInput = (val) => {
+      state.customHpOffset = parseInt(val, 10);
+      updateHpOffsetLabel();
+    };
+
+    window.onBpmInput = (val) => {
+      state.sambaBpm = parseInt(val, 10);
+      document.getElementById('bpmVal').innerText = state.sambaBpm + " BPM";
+    };
+
     window.onHopInput = (val) => {
       document.getElementById('hopVal').innerText = parseFloat(val).toFixed(1) + "x";
     };
 
     window.triggerAttack = () => {
       state.isAttacking = true;
+      state.attackDuration = state.type.includes('archer') ? 450 : 500;
+      state.attackTime = performance.now();
+      state._lastArrowFiredCycle = null;
+    };
+
+    window.triggerShootArrow = () => {
+      state.isAttacking = true;
+      state.attackDuration = 450;
+      state.attackTime = performance.now();
+      state._lastArrowFiredCycle = null;
+    };
+
+    window.triggerArrowVolley = () => {
+      state.isAttacking = true;
+      state.attackDuration = 450;
+      const now = performance.now();
+      state.attackTime = now;
+      state._lastArrowFiredCycle = now;
+      const launchX = Math.cos(state.angle) * 16;
+      const launchY = -9.5 + Math.sin(state.angle) * 16;
+      shootGoblinArrowVolley({
+        x: launchX,
+        y: launchY,
+        angle: state.angle,
+        sourceId: "preview_mob",
+        speed: 720
+      });
+    };
+
+    window.triggerGlacialSlam = () => {
+      state.isAttacking = true;
+      state.attackDuration = 650;
+      state.attackTime = performance.now();
+      state.isBreathingFrost = false;
+    };
+
+    window.triggerBlizzardRoar = () => {
+      state.isBreathingFrost = !state.isBreathingFrost;
+      state.roarTime = performance.now();
+    };
+
+    window.triggerVoidCataclysm = () => {
+      state.isAttacking = true;
+      state.attackDuration = 1000;
       state.attackTime = performance.now();
     };
 
@@ -488,7 +650,47 @@
         x: 0,
         y: 0
       };
-      triggerWolfDeathLimbExplosion(dummyCe);
+      if (
+        state.family === "frost_troll" ||
+        state.type.includes("troll") ||
+        state.type.includes("giant")
+      ) {
+        triggerFrostTrollDeathExplosion(dummyCe);
+      } else if (
+        state.type === "void_stalker" ||
+        state.type.includes("stalker") ||
+        state.family === "spider" ||
+        state.type.includes("spider") ||
+        state.type.includes("weaver") ||
+        state.type.includes("broodmother") ||
+        state.type.includes("tarantula")
+      ) {
+        triggerSpiderDeathExplosion(dummyCe);
+      } else if (
+        state.family === "boss_void" ||
+        state.type.includes("void") ||
+        state.type.includes("terror") ||
+        state.type.includes("devourer") ||
+        state.type.includes("gazer")
+      ) {
+        triggerVoidDeathExplosion(dummyCe);
+      } else if (state.family === "skeleton" || state.type.includes("skeleton") || state.type.includes("samba") || state.type.includes("knight") || state.type.includes("mestre") || state.type.includes("malandro")) {
+        triggerSkeletonDeathExplosion(dummyCe);
+      } else {
+        triggerWolfDeathLimbExplosion(dummyCe);
+      }
+    };
+
+    window.triggerConfettiFiesta = () => {
+      const dummyCe = {
+        id: "preview_mob",
+        type: state.type,
+        hp: 0,
+        maxHp: 100,
+        x: 0,
+        y: 0
+      };
+      triggerSkeletonDeathExplosion(dummyCe);
     };
 
     function updateVariantDropdown(fam) {
@@ -503,8 +705,46 @@
       });
     }
 
-    // Initialize dropdown
-    updateVariantDropdown("slime");
+    // Initialize dropdown with frost troll
+    updateVariantDropdown("frost_troll");
+    const variantSelect = document.getElementById('mobVariant');
+    if (variantSelect) {
+      variantSelect.value = "glass_troll";
+    }
+    state.type = "glass_troll";
+    const trollVariant = VARIANTS.frost_troll[0];
+    document.getElementById('hudEntType').innerText = trollVariant.label;
+    const bpmGroup = document.getElementById('sambaBpmGroup');
+    if (bpmGroup) {
+      bpmGroup.style.display = "none";
+    }
+    updateHpOffsetLabel();
+    updateArcherControls();
+
+    // Canvas click-to-aim and attack
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const mouseX = (e.clientX - rect.left - cx) / state.scale;
+      const mouseY = (e.clientY - rect.top - cy) / state.scale;
+      const angle = Math.atan2(mouseY, mouseX);
+
+      state.angle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      const deg = Math.round(state.angle * (180 / Math.PI));
+      const slider = document.getElementById('angleSlider');
+      if (slider) slider.value = state.angle;
+      document.getElementById('angleDeg').innerText = deg + " deg";
+      document.getElementById('hudAngle').innerText = deg + " deg";
+
+      if (state.type.includes('archer')) {
+        window.triggerShootArrow();
+      } else if (state.family === "frost_troll" || state.type.includes("troll") || state.type.includes("jotunn") || state.type.includes("giant")) {
+        window.triggerGlacialSlam();
+      } else {
+        window.triggerAttack();
+      }
+    });
 
     // 60 FPS Render Loop
     let lastTime = performance.now();
@@ -528,9 +768,19 @@
       const isMoving = document.getElementById('chkMoving').checked;
       const isSlowed = document.getElementById('chkSlowed').checked;
       const showHp = document.getElementById('chkHpBar').checked;
+      const curAttackDur = state.attackDuration || 500;
 
-      if (state.isAttacking && now - state.attackTime > 500) {
+      if (state.isAttacking && now - state.attackTime > curAttackDur) {
         state.isAttacking = false;
+        state._lastArrowFiredCycle = null;
+      }
+
+      // Auto-fire rapid volley for archer
+      if (state.type.includes('archer') && document.getElementById('chkAutoFire')?.checked) {
+        if (!state._lastAutoFire || now - state._lastAutoFire > 1250) {
+          state._lastAutoFire = now;
+          window.triggerShootArrow();
+        }
       }
 
       const ent = {
@@ -545,15 +795,20 @@
         isMoving: isMoving,
         isSlowed: isSlowed,
         isAttacking: state.isAttacking,
+        isBreathingFrost: !!state.isBreathingFrost,
         lastHitTime: state.flashTime,
         attackStart: state.attackTime,
         lastAttackTime: state.attackTime,
+        _lastArrowFiredCycle: state._lastArrowFiredCycle,
+        sambaBpm: state.sambaBpm || 124,
         showPuddles: document.getElementById('chkPuddles') ? document.getElementById('chkPuddles').checked : true,
         showRipples: document.getElementById('chkRipples') ? document.getElementById('chkRipples').checked : true,
         hopIntensity: parseFloat(document.getElementById('hopSlider')?.value || "1.0"),
+        glassEffect: document.getElementById('chkGlass') ? document.getElementById('chkGlass').checked : true,
+        glassRefraction: parseFloat(document.getElementById('glassSlider')?.value || "85") / 100,
         currentCast: state.isAttacking ? {
-          progress: Math.min(1, (now - state.attackTime) / 500),
-          duration: 500,
+          progress: Math.min(1, (now - state.attackTime) / curAttackDur),
+          duration: curAttackDur,
           startTime: state.attackTime
         } : null,
         _seed: state.seed
@@ -569,11 +824,24 @@
       try {
         // Draw Monster
         drawMonster(ctx, 0, 0, ent);
+        if (ent._lastArrowFiredCycle) {
+          state._lastArrowFiredCycle = ent._lastArrowFiredCycle;
+        }
 
         // Draw HP Bar
         if (showHp) {
-          drawEntityHP(ctx, ent, 0, 0);
+          const autoOffset = getMobUiOffsets(ent).hpOffset;
+          const finalOffset = state.customHpOffset > 0 ? state.customHpOffset : autoOffset;
+          drawEntityHP(ctx, ent, 0, 0, finalOffset);
         }
+
+        // Update and draw procedural arrows
+        const halfW = canvas.width / (2 * state.scale);
+        const halfH = canvas.height / (2 * state.scale);
+        const bounds = { minX: -halfW + 12, maxX: halfW - 12, minY: -halfH + 12, maxY: halfH - 12 };
+
+        updateGoblinArrows(dt, bounds, null);
+        drawGoblinArrows(ctx);
 
         // Update and draw particles
         for (let i = particles.length - 1; i >= 0; i--) {
@@ -606,6 +874,24 @@
               ctx.ellipse(p.x, p.y, currentSize * 0.5, currentSize * 0.3, p.life * 5, 0, Math.PI * 2);
               ctx.fill();
             }
+          } else if (p.style === "glass_shard") {
+            // Faceted diamond glass shard
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y - currentSize);
+            ctx.lineTo(p.x + currentSize * 0.55, p.y);
+            ctx.lineTo(p.x, p.y + currentSize * 1.1);
+            ctx.lineTo(p.x - currentSize * 0.55, p.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Glass specular edge highlight
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y - currentSize);
+            ctx.lineTo(p.x + currentSize * 0.55, p.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.closePath();
+            ctx.fill();
           } else {
             ctx.beginPath();
             ctx.arc(p.x, p.y, Math.max(0.5, currentSize), 0, Math.PI * 2);

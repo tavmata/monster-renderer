@@ -5,9 +5,17 @@ const _MOB_OFFSETS_CACHE = {
   "ice_elemental": Object.freeze({ hpOffset: 85, nameOffset: 102 }),
   "magma_elemental": Object.freeze({ hpOffset: 85, nameOffset: 102 }),
   "boss_crystal_weaver": Object.freeze({ hpOffset: 130, nameOffset: 150 }),
-  "boss_frost_giant": Object.freeze({ hpOffset: 155, nameOffset: 175 }),
+  "boss_frost_giant": Object.freeze({ hpOffset: 165, nameOffset: 185 }),
+  "jotunn": Object.freeze({ hpOffset: 165, nameOffset: 185 }),
   "boss_obsidian_golem": Object.freeze({ hpOffset: 145, nameOffset: 165 }),
-  "boss_void_terror": Object.freeze({ hpOffset: 145, nameOffset: 165 }),
+  "boss_void_terror": Object.freeze({ hpOffset: 125, nameOffset: 145 }),
+  "void_terror": Object.freeze({ hpOffset: 95, nameOffset: 115 }),
+  "boss_void_devourer": Object.freeze({ hpOffset: 120, nameOffset: 140 }),
+  "void_devourer": Object.freeze({ hpOffset: 92, nameOffset: 112 }),
+  "void_null_gazer": Object.freeze({ hpOffset: 88, nameOffset: 108 }),
+  "null_gazer": Object.freeze({ hpOffset: 88, nameOffset: 108 }),
+  "void_spawn": Object.freeze({ hpOffset: 55, nameOffset: 72 }),
+  "boss_singularity_colossus": Object.freeze({ hpOffset: 135, nameOffset: 155 }),
   "boss_abyssal_tidecaller": Object.freeze({ hpOffset: 140, nameOffset: 160 }),
   "elite_knight": Object.freeze({ hpOffset: 102, nameOffset: 122 }),
   "elite_archer": Object.freeze({ hpOffset: 102, nameOffset: 122 }),
@@ -16,6 +24,7 @@ const _MOB_OFFSETS_CACHE = {
   "boss_goblin": Object.freeze({ hpOffset: 120, nameOffset: 140 }),
   "goblin_brute": Object.freeze({ hpOffset: 98, nameOffset: 116 }),
   "goblin_warrior": Object.freeze({ hpOffset: 95, nameOffset: 115 }),
+  "goblin_archer": Object.freeze({ hpOffset: 82, nameOffset: 100 }),
   "goblin": Object.freeze({ hpOffset: 78, nameOffset: 96 }),
   "boss_slime": Object.freeze({ hpOffset: 135, nameOffset: 155 }),
   "boss_wolf": Object.freeze({ hpOffset: 135, nameOffset: 155 }),
@@ -27,25 +36,63 @@ const _MOB_OFFSETS_CACHE = {
   "dire_wolf": Object.freeze({ hpOffset: 75, nameOffset: 92 }),
   "plague_rat": Object.freeze({ hpOffset: 55, nameOffset: 72 }),
   "boss_plague_rat": Object.freeze({ hpOffset: 95, nameOffset: 115 }),
-  "frost_troll": Object.freeze({ hpOffset: 96, nameOffset: 114 }),
+  "frost_troll": Object.freeze({ hpOffset: 72, nameOffset: 90 }),
+  "glacial_troll": Object.freeze({ hpOffset: 86, nameOffset: 106 }),
+  "crystal_troll": Object.freeze({ hpOffset: 78, nameOffset: 96 }),
+  "boss_frost_troll": Object.freeze({ hpOffset: 155, nameOffset: 175 }),
+  "skeleton": Object.freeze({ hpOffset: 64, nameOffset: 82 }),
+  "skeleton_mestre": Object.freeze({ hpOffset: 68, nameOffset: 86 }),
+  "skeleton_malandro": Object.freeze({ hpOffset: 60, nameOffset: 78 }),
+  "elite_knight": Object.freeze({ hpOffset: 70, nameOffset: 88 }),
+  "boss_samba_king": Object.freeze({ hpOffset: 96, nameOffset: 116 }),
+  "giant_cave_spider": Object.freeze({ hpOffset: 82, nameOffset: 102 }),
+  "spider": Object.freeze({ hpOffset: 80, nameOffset: 100 }),
+  "boss_broodmother": Object.freeze({ hpOffset: 115, nameOffset: 135 }),
+  "toxic_tarantula": Object.freeze({ hpOffset: 85, nameOffset: 105 }),
+  "void_stalker": Object.freeze({ hpOffset: 82, nameOffset: 102 }),
 };
 
 export function getMobUiOffsets(ent) {
   if (!ent || !ent.type) return _DEFAULT_OFFSETS;
-  const type = ent.type;
+  const type = ent.type.toLowerCase();
   const direct = _MOB_OFFSETS_CACHE[type];
   if (direct) return direct;
   
+  if (type.includes("colossus") || type.includes("singularity")) return _MOB_OFFSETS_CACHE["boss_singularity_colossus"];
+  if (type.includes("terror") || type === "boss_void") return type.startsWith("boss") ? _MOB_OFFSETS_CACHE["boss_void_terror"] : _MOB_OFFSETS_CACHE["void_terror"];
+  if (type.includes("devourer")) return type.startsWith("boss") ? _MOB_OFFSETS_CACHE["boss_void_devourer"] : _MOB_OFFSETS_CACHE["void_devourer"];
+  if (type.includes("gazer")) return _MOB_OFFSETS_CACHE["void_null_gazer"];
+  if (type.includes("spawn") || type.includes("larva")) return _MOB_OFFSETS_CACHE["void_spawn"];
   if (type.startsWith("boss_goblin")) return _MOB_OFFSETS_CACHE["boss_goblin"];
   if (type.includes("warrior")) return _MOB_OFFSETS_CACHE["goblin_warrior"];
   if (type.startsWith("goblin")) return _MOB_OFFSETS_CACHE["goblin"];
+  if (type.startsWith("boss_samba") || type.includes("samba_king") || (type.includes("skeleton") && type.includes("boss"))) return _MOB_OFFSETS_CACHE["boss_samba_king"];
+  if (type.includes("mestre") || type.includes("bateria")) return _MOB_OFFSETS_CACHE["skeleton_mestre"];
+  if (type.includes("malandro")) return _MOB_OFFSETS_CACHE["skeleton_malandro"];
+  if (type.includes("knight")) return _MOB_OFFSETS_CACHE["elite_knight"];
+  if (type.includes("skeleton") || type.includes("samba") || type.includes("passista")) return _MOB_OFFSETS_CACHE["skeleton"];
+  if (type.includes("broodmother") || (type.includes("spider") && type.includes("boss"))) return _MOB_OFFSETS_CACHE["boss_broodmother"];
+  if (type.includes("tarantula")) return _MOB_OFFSETS_CACHE["toxic_tarantula"];
+  if (type.includes("stalker")) return _MOB_OFFSETS_CACHE["void_stalker"];
+  if (type.includes("spider") || type.includes("weaver")) return _MOB_OFFSETS_CACHE["giant_cave_spider"];
+  if (type.includes("giant") || (type.includes("troll") && type.startsWith("boss"))) return _MOB_OFFSETS_CACHE["boss_frost_troll"];
+  if (type.includes("glacial")) return _MOB_OFFSETS_CACHE["glacial_troll"];
+  if (type.includes("crystal_troll")) return _MOB_OFFSETS_CACHE["crystal_troll"];
+  if (type.includes("troll")) return _MOB_OFFSETS_CACHE["frost_troll"];
   
   return _DEFAULT_OFFSETS;
 }
 
-export function drawEntityHP(ctx, ent, screenX, screenY, offset = 28) {
+export function drawEntityHP(ctx, ent, screenX, screenY, offset = null) {
   if (typeof window !== "undefined" && typeof window.shouldShowMobHpBar === "function" && !window.shouldShowMobHpBar(ent)) return;
-  if (ent.maxHp) {
+  if (!ent || !ent.maxHp) return;
+
+  // Resolve entity UI offset so the life bar floats cleanly above towering headdresses and plumes
+  let effectiveOffset = offset;
+  if (effectiveOffset === null || effectiveOffset === undefined || effectiveOffset === 28) {
+    const mobOffsets = getMobUiOffsets(ent);
+    effectiveOffset = mobOffsets ? mobOffsets.hpOffset : 62;
+  }
     if (ent.displayHp === undefined) ent.displayHp = ent.hp;
     // Smooth interpolator for health bar changes (reduces jumpiness)
     ent.displayHp += (ent.hp - ent.displayHp) * 0.15;
@@ -54,7 +101,7 @@ export function drawEntityHP(ctx, ent, screenX, screenY, offset = 28) {
     const barW = 34;
     const barH = 5;
     const barX = screenX - barW / 2;
-    const barY = screenY - offset;
+    const barY = screenY - effectiveOffset;
 
     // Status Effect Visual Effects (Stun Orbit Stars)
     if (ent.buffs && (ent.buffs.stunned || ent.buffs.stun)) {
@@ -169,7 +216,7 @@ export function drawEntityHP(ctx, ent, screenX, screenY, offset = 28) {
         ctx.beginPath();
         ctx.arc(
           startX + i * spacing,
-          screenY - offset + 11,
+          screenY - effectiveOffset + 11,
           dotRadius,
           0,
           Math.PI * 2,
@@ -184,7 +231,6 @@ export function drawEntityHP(ctx, ent, screenX, screenY, offset = 28) {
         }
       }
     }
-  }
 }
 
 if (typeof window !== "undefined") {

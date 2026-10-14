@@ -2,8 +2,11 @@
 import { computeFastSeed, safeCreateRadialGradient } from './helpers.js';
 
 const MAGE_REGEX = /mage|shaman|occult/i;
-const ARCHER_REGEX = /archer|scout|hunter/i;
-const THIEF_REGEX = /thief|rogue|assassin|dagger/i;
+const ARCHER_REGEX = /archer|bow|hunter|ranger/i;
+const THIEF_REGEX = /thief|rogue|assassin|dagger|scout/i;
+
+// Persistent cycle tracker ensuring exactly 1 arrow release per archer attack cycle across frames
+const _archerFiredCycleMap = new Map();
 
 export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   if (isShadowPass) return;
@@ -63,6 +66,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       tailX: -10.0, tailY: -2.0, tailFront: false,
       rightArmX: 2.0, rightArmY: -9.5, rightArmFront: false,
       leftArmX: -1.2, leftArmY: -8.8, leftArmFront: true,
+      rightLegHipX: -0.6, rightLegFootX: -1.2, rightLegFront: false,
+      leftLegHipX: 0.6, leftLegFootX: 1.4,
+      facingDirX: 1.0,
       earringVisible: false
     },
     // 1: South-East (SE) - 3/4 Front facing Down-Right (Right arm far side = behind, Left arm near side = front)
@@ -72,6 +78,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       tailX: -7.5, tailY: -0.5, tailFront: false,
       rightArmX: -3.2, rightArmY: -9.5, rightArmFront: false,
       leftArmX: 4.2, leftArmY: -9.0, leftArmFront: true,
+      rightLegHipX: -2.4, rightLegFootX: -2.6, rightLegFront: false,
+      leftLegHipX: 2.2, leftLegFootX: 3.4,
+      facingDirX: 0.7,
       earringVisible: true, earringScreenRight: true
     },
     // 2: South (S) - Direct Front facing Camera (Both arms in foreground)
@@ -81,6 +90,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       tailX: 0.0, tailY: 1.0, tailFront: false,
       rightArmX: -4.4, rightArmY: -9.5, rightArmFront: true,
       leftArmX: 4.4, leftArmY: -9.5, leftArmFront: true,
+      rightLegHipX: -3.2, rightLegFootX: -3.6, rightLegFront: true,
+      leftLegHipX: 3.2, leftLegFootX: 3.6,
+      facingDirX: 0.0,
       earringVisible: true, earringScreenRight: true
     },
     // 3: South-West (SW) - 3/4 Front facing Down-Left (Right arm near side = front, Left arm far side = behind)
@@ -90,6 +102,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       tailX: 7.5, tailY: -0.5, tailFront: false,
       rightArmX: -3.8, rightArmY: -9.5, rightArmFront: true,
       leftArmX: 3.2, leftArmY: -9.0, leftArmFront: false,
+      rightLegHipX: -2.2, rightLegFootX: -3.4, rightLegFront: true,
+      leftLegHipX: 2.4, leftLegFootX: 2.6,
+      facingDirX: -0.7,
       earringVisible: true, earringScreenRight: true
     },
     // 4: West (W) - Side Profile facing Left (Right arm near side = front, Left arm far side = behind)
@@ -99,6 +114,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       tailX: 10.0, tailY: -2.0, tailFront: false,
       rightArmX: -2.8, rightArmY: -9.5, rightArmFront: true,
       leftArmX: 1.2, leftArmY: -8.8, leftArmFront: false,
+      rightLegHipX: -0.6, rightLegFootX: -1.4, rightLegFront: true,
+      leftLegHipX: 0.6, leftLegFootX: 1.2,
+      facingDirX: -1.0,
       earringVisible: true, earringScreenRight: false
     },
     // 5: North-West (NW) - 3/4 Back facing Up-Left (Right arm far side = behind, Left arm near side = front)
@@ -108,6 +126,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       tailX: 6.5, tailY: 5.5, tailFront: true,
       rightArmX: 3.5, rightArmY: -9.5, rightArmFront: false,
       leftArmX: -3.8, leftArmY: -9.0, leftArmFront: true,
+      rightLegHipX: -2.2, rightLegFootX: -3.0, rightLegFront: true,
+      leftLegHipX: 2.4, leftLegFootX: 2.4,
+      facingDirX: -0.7,
       earringVisible: true, earringScreenRight: false
     },
     // 6: North (N) - Direct Back facing Up (Both arms layered in background)
@@ -117,6 +138,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       tailX: 0.0, tailY: 6.5, tailFront: true,
       rightArmX: 4.4, rightArmY: -9.5, rightArmFront: false,
       leftArmX: -4.4, leftArmY: -9.5, leftArmFront: false,
+      rightLegHipX: -3.2, rightLegFootX: -3.6, rightLegFront: false,
+      leftLegHipX: 3.2, leftLegFootX: 3.6,
+      facingDirX: 0.0,
       earringVisible: true, earringScreenRight: false
     },
     // 7: North-East (NE) - 3/4 Back facing Up-Right (Right arm near side = front, Left arm far side = behind)
@@ -126,6 +150,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       tailX: -6.5, tailY: 5.5, tailFront: true,
       rightArmX: 3.5, rightArmY: -9.5, rightArmFront: true,
       leftArmX: -3.2, leftArmY: -9.0, leftArmFront: false,
+      rightLegHipX: -2.4, rightLegFootX: -2.4, rightLegFront: false,
+      leftLegHipX: 2.2, leftLegFootX: 3.0,
+      facingDirX: 0.7,
       earringVisible: true, earringScreenRight: false
     }
   ];
@@ -176,7 +203,22 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   if (isAttacking && attackProgress > 0) {
     const atkDirX = Math.cos(facingAngle);
     const atkDirY = Math.sin(facingAngle);
-    if (attackProgress < 0.25) {
+    if (isArcher) {
+      if (attackProgress < 0.52) {
+        // Draw bow: steady archer footing, subtle lean back
+        const t = attackProgress / 0.52;
+        squashY = 1 - t * 0.04;
+        squashX = 1 + t * 0.03;
+        lungeX = -atkDirX * t * 1.6;
+        lungeY = -atkDirY * t * 1.6;
+      } else {
+        // Release: bow recoil bump
+        const t = (attackProgress - 0.52) / 0.48;
+        const recoil = Math.sin(t * Math.PI) * Math.exp(-t * 3);
+        lungeX = -atkDirX * 1.6 + atkDirX * recoil * 1.8;
+        lungeY = -atkDirY * 1.6 + atkDirY * recoil * 1.8;
+      }
+    } else if (attackProgress < 0.25) {
       const t = attackProgress / 0.25;
       squashY = 1 - t * 0.10;
       squashX = 1 + t * 0.06;
@@ -190,6 +232,38 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       lungeX = atkDirX * stretch * 6.0;
       lungeY = atkDirY * stretch * 4.0;
     }
+  }
+
+  // Automatic Arrow Release for Goblin Archer (Guaranteed exactly 1 arrow per basic attack cycle)
+  const archerEntKey = ent.id || ("goblin_" + Math.round(x) + "_" + Math.round(y));
+  if (!isShadowPass && isArcher && isAttacking && attackProgress >= 0.52) {
+    const animStart = ent.attackStart || ent.lastAttackTime || ent.attackTime || (ent.currentCast ? ent.currentCast.startTime : null);
+    let cycleKey = animStart;
+    if (!cycleKey) {
+      if (!ent._attackCycleStart) {
+        ent._attackCycleStart = nowMs;
+      }
+      cycleKey = ent._attackCycleStart;
+    }
+
+    const lastFired = _archerFiredCycleMap.get(archerEntKey) || ent._lastArrowFiredCycle;
+    if (lastFired !== cycleKey) {
+      _archerFiredCycleMap.set(archerEntKey, cycleKey);
+      ent._lastArrowFiredCycle = cycleKey;
+      const launchX = x + Math.cos(facingAngle) * 16 * scale;
+      const launchY = y - (9.5 * scale) + Math.sin(facingAngle) * 16 * scale;
+      shootGoblinArrow({
+        x: launchX,
+        y: launchY,
+        angle: facingAngle,
+        sourceId: ent.id || "goblin_archer",
+        speed: 720
+      });
+    }
+  } else if (!isAttacking) {
+    _archerFiredCycleMap.delete(archerEntKey);
+    ent._lastArrowFiredCycle = null;
+    ent._attackCycleStart = null;
   }
 
   // -------------------------------------------------------------
@@ -252,22 +326,492 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   }
 
   // -------------------------------------------------------------
+  // Dedicated Procedural 8-Direction & Continuous Aiming Goblin Archer System
+  // Physically connects bow arm, draw arm, bowstring, and arrow at facingAngle
+  // -------------------------------------------------------------
+  const drawArcherEquipment = (isForegroundPass) => {
+    if (isShadowPass || !isArcher) return;
+
+    const aimAngle = normAngle;
+    const dx = Math.cos(aimAngle);
+    const dy = Math.sin(aimAngle);
+    const px = -dy; // perpendicular vector X (-sin)
+    const py = dx;  // perpendicular vector Y (cos)
+
+    // 2.5D Layer depth:
+    // When aiming upward/North (dy < -0.2), the extended bow is in the background behind the torso.
+    const isBowInBackground = dy < -0.2;
+
+    // Draw cycle kinematics
+    let drawTension = 0;
+    let stringTwang = 0;
+    let isArrowLoaded = true;
+    let arrowLoadProgress = 1.0;
+
+    if (isAttacking) {
+      if (attackProgress < 0.52) {
+        drawTension = Math.sin((attackProgress / 0.52) * (Math.PI / 2));
+        isArrowLoaded = true;
+        arrowLoadProgress = 1.0;
+      } else if (attackProgress < 0.72) {
+        const relT = attackProgress - 0.52;
+        stringTwang = Math.sin(relT * 60) * Math.exp(-relT * 12) * 2.8;
+        drawTension = 0;
+        isArrowLoaded = false;
+      } else {
+        const nockT = (attackProgress - 0.72) / 0.28;
+        drawTension = 0;
+        isArrowLoaded = true;
+        arrowLoadProgress = nockT;
+      }
+    } else {
+      drawTension = 0.0;
+      isArrowLoaded = true;
+      arrowLoadProgress = 1.0;
+    }
+
+    const chestX = torsoX;
+    const chestY = torsoY;
+
+    // Bow reach from chest along aim direction
+    const bowReach = 11.2 + drawTension * 1.5;
+    const bowHandleX = chestX + dx * bowReach;
+    const bowHandleY = chestY + dy * bowReach;
+
+    // Nock position along aim vector behind bow handle
+    const baseNockDist = 5.0;
+    const pullDist = 6.2 * drawTension;
+    const nockDist = baseNockDist + pullDist - stringTwang;
+    const drawHandX = bowHandleX - dx * nockDist;
+    const drawHandY = bowHandleY - dy * nockDist;
+
+    // Anatomical shoulders on goblin torso
+    const bowShoulderX = chestX + px * 2.6 + dx * 1.0;
+    const bowShoulderY = chestY + py * 2.6 + dy * 1.0;
+    const drawShoulderX = chestX - px * 2.6 - dx * 1.2;
+    const drawShoulderY = chestY - py * 2.6 - dy * 1.2;
+
+    // If bow is in background and this is foreground pass:
+    // Only render the draw arm and hand over the torso/back!
+    if (isBowInBackground && isForegroundPass) {
+      ctx.save();
+      ctx.fillStyle = skinBase;
+      ctx.beginPath();
+      ctx.ellipse(drawShoulderX, drawShoulderY, 2.4, 2.0, aimAngle, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = skinDark;
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(drawShoulderX, drawShoulderY);
+      ctx.lineTo(drawHandX, drawHandY);
+      ctx.stroke();
+
+      ctx.fillStyle = "#5c2b09";
+      ctx.beginPath();
+      ctx.arc(drawHandX, drawHandY, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.arc(drawHandX + dx * 0.4, drawHandY + dy * 0.4, 0.9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    // If bow is in foreground and this is background pass:
+    // Render far shoulder behind the torso in side views
+    if (!isBowInBackground && !isForegroundPass) {
+      const farX = dx >= 0 ? drawShoulderX : bowShoulderX;
+      const farY = dx >= 0 ? drawShoulderY : bowShoulderY;
+      ctx.save();
+      ctx.fillStyle = skinDark;
+      ctx.beginPath();
+      ctx.ellipse(farX, farY, 2.4, 1.9, aimAngle, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    // Main Bow & Arms Pass
+    ctx.save();
+
+    // 1. Bow Arm
+    ctx.fillStyle = skinBase;
+    ctx.beginPath();
+    ctx.ellipse(bowShoulderX, bowShoulderY, 2.6, 2.1, aimAngle, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = skinDark;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(bowShoulderX, bowShoulderY);
+    ctx.lineTo(bowHandleX, bowHandleY);
+    ctx.stroke();
+
+    // Leather Bracer on bow arm
+    const bracerMidX = (bowShoulderX + bowHandleX * 2) / 3;
+    const bracerMidY = (bowShoulderY + bowHandleY * 2) / 3;
+    ctx.strokeStyle = "#3b2314";
+    ctx.lineWidth = 3.4;
+    ctx.beginPath();
+    ctx.moveTo(bracerMidX - dx * 1.5, bracerMidY - dy * 1.5);
+    ctx.lineTo(bracerMidX + dx * 1.5, bracerMidY + dy * 1.5);
+    ctx.stroke();
+
+    ctx.fillStyle = "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(bracerMidX, bracerMidY, 0.65, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Draw Arm (if bow is in foreground)
+    if (!isBowInBackground) {
+      ctx.fillStyle = skinBase;
+      ctx.beginPath();
+      ctx.ellipse(drawShoulderX, drawShoulderY, 2.4, 2.0, aimAngle, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = skinDark;
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(drawShoulderX, drawShoulderY);
+      ctx.lineTo(drawHandX, drawHandY);
+      ctx.stroke();
+
+      ctx.fillStyle = "#5c2b09";
+      ctx.beginPath();
+      ctx.arc(drawHandX, drawHandY, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 3. Bow, Bowstring, Arrow & Claws (Transformed to bow handle and rotated along aimAngle)
+    ctx.save();
+    ctx.translate(bowHandleX, bowHandleY);
+    ctx.rotate(aimAngle);
+
+    // Bow Limb Flexing under tension
+    const flexX = -1.8 - drawTension * 3.4;
+    const topTipX = flexX;
+    const topTipY = -12.5;
+    const botTipX = flexX;
+    const botTipY = 12.5;
+
+    // Upper Recurve Limb
+    ctx.strokeStyle = "#5a2d0c";
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(2.6 + flexX * 0.4, -6.5, topTipX, topTipY);
+    ctx.stroke();
+
+    // Upper inner belly laminate
+    ctx.strokeStyle = "#78350f";
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(2.0 + flexX * 0.4, -6.5, topTipX - 0.5, topTipY);
+    ctx.stroke();
+
+    // Lower Recurve Limb
+    ctx.strokeStyle = "#5a2d0c";
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(2.6 + flexX * 0.4, 6.5, botTipX, botTipY);
+    ctx.stroke();
+
+    // Lower inner belly laminate
+    ctx.strokeStyle = "#78350f";
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(2.0 + flexX * 0.4, 6.5, botTipX - 0.5, botTipY);
+    ctx.stroke();
+
+    // Horn tip reinforcement on limbs
+    ctx.fillStyle = "#0f172a";
+    ctx.beginPath();
+    ctx.arc(topTipX, topTipY, 1.2, 0, Math.PI * 2);
+    ctx.arc(botTipX, botTipY, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ivory nock grooves on limb tips
+    ctx.fillStyle = "#fef3c7";
+    ctx.beginPath();
+    ctx.arc(topTipX - 0.4, topTipY, 0.5, 0, Math.PI * 2);
+    ctx.arc(botTipX - 0.4, botTipY, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Riser / Handle Wrap (Tanned leather with cross-stitches)
+    ctx.fillStyle = "#92400e";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 1.8, 3.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Carved arrow shelf on riser
+    ctx.fillStyle = "#5c2b09";
+    ctx.fillRect(-0.8, -1.8, 1.6, 0.8);
+
+    ctx.strokeStyle = "#fef08a";
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-0.8, -2.0); ctx.lineTo(0.8, 2.0);
+    ctx.moveTo(0.8, -2.0);  ctx.lineTo(-0.8, 2.0);
+    ctx.stroke();
+
+    // Bowstring (Braided sinew)
+    const localNockX = -nockDist;
+    ctx.strokeStyle = "rgba(241, 245, 249, 0.88)";
+    ctx.lineWidth = 0.85;
+    ctx.beginPath();
+    ctx.moveTo(topTipX, topTipY);
+    if (drawTension > 0.02 || isArrowLoaded) {
+      ctx.lineTo(localNockX, 0);
+      ctx.lineTo(botTipX, botTipY);
+    } else if (Math.abs(stringTwang) > 0.15) {
+      ctx.quadraticCurveTo(flexX + stringTwang, 0, botTipX, botTipY);
+    } else {
+      ctx.lineTo(botTipX, botTipY);
+    }
+    ctx.stroke();
+
+    // NOCKED ARROW
+    if (isArrowLoaded) {
+      let arrowHeadDist = 13.5 - drawTension * 4.2;
+      if (arrowLoadProgress < 1.0) {
+        arrowHeadDist = 7.0 + arrowLoadProgress * 6.5;
+      }
+
+      const arrowHeadX = arrowHeadDist;
+      const arrowTailX = localNockX;
+      const arrowShelfY = -0.5;
+
+      // 1. High-Density Cedar Shaft
+      const shaftLen = arrowHeadX - arrowTailX;
+      ctx.fillStyle = "#854d0e";
+      ctx.fillRect(arrowTailX, arrowShelfY - 0.8, shaftLen, 1.6);
+
+      // Wood grain specular highlight
+      ctx.fillStyle = "#b45309";
+      ctx.fillRect(arrowTailX, arrowShelfY - 0.8, shaftLen, 0.5);
+
+      // Lower ambient shadow
+      ctx.fillStyle = "#5c2b09";
+      ctx.fillRect(arrowTailX, arrowShelfY + 0.4, shaftLen, 0.4);
+
+      // 2. Sinew Thread Bindings
+      ctx.fillStyle = "#3b1d06";
+      ctx.fillRect(arrowHeadX - 1.8, arrowShelfY - 0.9, 1.4, 1.8);
+      ctx.fillRect(arrowTailX + 4.2, arrowShelfY - 0.9, 1.2, 1.8);
+      ctx.fillRect(arrowTailX + 0.8, arrowShelfY - 0.9, 1.0, 1.8);
+
+      // 3. Chipped Flint / Obsidian Broadhead Blade
+      ctx.save();
+      ctx.translate(arrowHeadX, arrowShelfY);
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.moveTo(5.2, 0);
+      ctx.lineTo(0.2, -2.6);
+      ctx.lineTo(0.9, -0.6);
+      ctx.lineTo(0.9, 0.6);
+      ctx.lineTo(0.2, 2.6);
+      ctx.closePath();
+      ctx.fill();
+
+      // Obsidian facet highlight
+      ctx.fillStyle = "#475569";
+      ctx.beginPath();
+      ctx.moveTo(5.2, 0);
+      ctx.lineTo(0.8, -1.8);
+      ctx.lineTo(1.8, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // Razor edge specular glint
+      ctx.strokeStyle = "rgba(248, 250, 252, 0.9)";
+      ctx.lineWidth = 0.55;
+      ctx.beginPath();
+      ctx.moveTo(5.2, 0);
+      ctx.lineTo(0.3, -2.5);
+      ctx.stroke();
+      ctx.restore();
+
+      // 4. Split-Feather Fletchings
+      // Upper Vane
+      ctx.fillStyle = "#166534";
+      ctx.beginPath();
+      ctx.moveTo(arrowTailX, arrowShelfY - 0.4);
+      ctx.lineTo(arrowTailX - 4.2, arrowShelfY - 2.8);
+      ctx.lineTo(arrowTailX - 1.4, arrowShelfY - 2.8);
+      ctx.lineTo(arrowTailX + 0.4, arrowShelfY - 0.4);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#fef08a";
+      ctx.beginPath();
+      ctx.moveTo(arrowTailX - 2.8, arrowShelfY - 0.4);
+      ctx.lineTo(arrowTailX - 3.4, arrowShelfY - 2.6);
+      ctx.lineTo(arrowTailX - 2.4, arrowShelfY - 2.6);
+      ctx.lineTo(arrowTailX - 1.8, arrowShelfY - 0.4);
+      ctx.closePath();
+      ctx.fill();
+
+      // Lower Vane
+      ctx.fillStyle = "#15803d";
+      ctx.beginPath();
+      ctx.moveTo(arrowTailX, arrowShelfY + 0.4);
+      ctx.lineTo(arrowTailX - 4.2, arrowShelfY + 2.8);
+      ctx.lineTo(arrowTailX - 1.4, arrowShelfY + 2.8);
+      ctx.lineTo(arrowTailX + 0.4, arrowShelfY + 0.4);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#fef08a";
+      ctx.beginPath();
+      ctx.moveTo(arrowTailX - 2.8, arrowShelfY + 0.4);
+      ctx.lineTo(arrowTailX - 3.4, arrowShelfY + 2.6);
+      ctx.lineTo(arrowTailX - 2.4, arrowShelfY + 2.6);
+      ctx.lineTo(arrowTailX - 1.8, arrowShelfY + 0.4);
+      ctx.closePath();
+      ctx.fill();
+
+      // 5. Polished Bone Nock
+      ctx.fillStyle = "#fef3c7";
+      ctx.fillRect(arrowTailX - 1.2, arrowShelfY - 0.8, 1.4, 1.6);
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(arrowTailX - 0.4, arrowShelfY - 0.5, 0.6, 1.0);
+
+      // 6. Draw Hand Claws gripping the arrow nock (when not in background view)
+      if (!isBowInBackground) {
+        ctx.save();
+        ctx.translate(arrowTailX, arrowShelfY);
+
+        ctx.fillStyle = skinBase;
+        ctx.beginPath();
+        ctx.ellipse(0.2, -1.4, 1.2, 0.9, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#0f172a";
+        ctx.beginPath();
+        ctx.moveTo(0.6, -1.8);
+        ctx.lineTo(1.8, -0.7);
+        ctx.lineTo(0.8, -0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = skinBase;
+        ctx.beginPath();
+        ctx.ellipse(0.2, 1.4, 1.2, 0.9, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#0f172a";
+        ctx.beginPath();
+        ctx.moveTo(0.6, 1.8);
+        ctx.lineTo(1.8, 0.7);
+        ctx.lineTo(0.8, 0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = skinDark;
+        ctx.beginPath();
+        ctx.arc(-0.6, 0, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(1.4, -0.8, 0.25, 0, Math.PI * 2);
+        ctx.arc(1.4, 0.8, 0.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    // 7. Bow Hand Grip on Riser
+    for (let f = 0; f < 3; f++) {
+      const fY = 1.0 + f * 1.3;
+      ctx.fillStyle = skinBase;
+      ctx.beginPath();
+      ctx.ellipse(0.5, fY, 1.0, 0.75, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.moveTo(1.2, fY - 0.4);
+      ctx.lineTo(2.1, fY);
+      ctx.lineTo(1.2, fY + 0.4);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    if (isArrowLoaded) {
+      ctx.fillStyle = skinBase;
+      ctx.beginPath();
+      ctx.ellipse(0.5, -1.2, 1.2, 0.9, -0.25, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.moveTo(1.0, -1.8);
+      ctx.lineTo(2.2, -0.8);
+      ctx.lineTo(1.1, -0.4);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(1.8, -0.9, 0.28, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore(); // End local bow & arrow
+    ctx.restore(); // End archer main pass
+  };
+
+  // -------------------------------------------------------------
   // 3. Feral Left Arm (Off-Hand Claws / Dagger & Wrist Wrap)
   // -------------------------------------------------------------
   const drawLeftArmOffHand = () => {
-    if (isShadowPass) return;
+    if (isShadowPass || isArcher) return;
     ctx.save();
     const armX = cfg.leftArmX;
     const armY = cfg.leftArmY;
     ctx.translate(armX, armY);
 
     const armDirSign = armX < 0 ? -1 : 1;
-    let baseArmRot = isBackView ? -0.45 * armDirSign : 0.40 * armDirSign;
+    let baseArmRot = isArcher
+      ? (isBackView ? -0.25 * armDirSign : -0.15 * armDirSign)
+      : (isBackView ? -0.45 * armDirSign : 0.40 * armDirSign);
 
     // Feral sneak / guard pose micro-motion
-    const idleOffHandWave = Math.sin(nowMs * 0.004 + seed + 1.2) * 0.08;
-    const walkOffHandSwing = moving ? -Math.sin(walkPhase) * 0.22 : 0;
-    const attackReaction = (isAttacking && attackProgress > 0) ? (attackProgress < 0.3 ? -0.35 : 0.25) : 0;
+    const idleOffHandWave = Math.sin(nowMs * 0.004 + seed + 1.2) * (isArcher ? 0.04 : 0.08);
+    const walkOffHandSwing = moving ? -Math.sin(walkPhase) * (isArcher ? 0.08 : 0.22) : 0;
+    let attackReaction = 0;
+    if (isAttacking && attackProgress > 0) {
+      if (isArcher) {
+        if (attackProgress < 0.52) {
+          // Draw bowstring back towards chest/jaw
+          const drawT = attackProgress / 0.52;
+          attackReaction = -armDirSign * drawT * 0.55;
+        } else if (attackProgress < 0.72) {
+          // Follow-through release recoil
+          const relT = (attackProgress - 0.52) / 0.20;
+          attackReaction = -armDirSign * 0.55 + armDirSign * Math.sin(relT * Math.PI) * 0.22;
+        } else {
+          // Re-nocking next arrow smoothly
+          const nockT = (attackProgress - 0.72) / 0.28;
+          attackReaction = -armDirSign * (0.35 * (1 - nockT));
+        }
+      } else {
+        attackReaction = attackProgress < 0.3 ? -0.35 : 0.25;
+      }
+    }
     ctx.rotate(baseArmRot + idleOffHandWave + walkOffHandSwing + attackReaction);
 
     // Shoulder / Deltoid
@@ -284,7 +828,7 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
     // Forearm angled inward in defensive/prowling posture
     const handX = armDirSign * 4.8;
-    const handY = 2.4;
+    const handY = isArcher ? 1.4 : 2.4;
 
     ctx.fillStyle = skinDark;
     ctx.beginPath();
@@ -295,13 +839,21 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     ctx.closePath();
     ctx.fill();
 
-    // Tattered Leather / Cord Wrist Wrap
-    ctx.fillStyle = "#451a03";
-    ctx.beginPath();
-    ctx.ellipse(handX - armDirSign * 1.4, handY + 0.4, 1.3, 1.1, armDirSign * 0.3, 0, Math.PI * 2);
-    ctx.fill();
+    if (isArcher) {
+      // Archer's Reinforced Leather Bracer (Forearm guard against bowstring slap)
+      ctx.fillStyle = "#3b2314";
+      ctx.fillRect(handX - armDirSign * 2.8, handY - 1.2, 2.6, 2.4);
+      ctx.fillStyle = "#fbbf24";
+      ctx.fillRect(handX - armDirSign * 2.5, handY - 0.8, 0.8, 1.6);
+    } else {
+      // Tattered Leather / Cord Wrist Wrap
+      ctx.fillStyle = "#451a03";
+      ctx.beginPath();
+      ctx.ellipse(handX - armDirSign * 1.4, handY + 0.4, 1.3, 1.1, armDirSign * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-    // Hand Knuckle & 3 Sharp Obsidian Talons or Dual Off-hand Dagger for Thief
+    // Hand Knuckle & Weapon / Grip
     ctx.fillStyle = skinBase;
     ctx.beginPath();
     ctx.arc(handX, handY, 1.5, 0, Math.PI * 2);
@@ -327,6 +879,65 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.arc(armDirSign * 2.0, -10.0, 0.6, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+    } else if (isArcher) {
+      // Archer's Draw Hand: Anatomical pinch grip with hooked claws holding arrow nock
+      ctx.fillStyle = "#5c2b09"; // Archer leather shooting tab
+      ctx.beginPath();
+      ctx.ellipse(handX + armDirSign * 0.5, handY, 1.3, 1.1, armDirSign * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      const isReleasing = isAttacking && attackProgress >= 0.52 && attackProgress < 0.70;
+      ctx.fillStyle = "#0f172a"; // Sharp obsidian claws
+      if (isReleasing) {
+        // Claws splayed open from release follow-through
+        ctx.beginPath();
+        ctx.moveTo(handX + armDirSign * 0.4, handY - 1.2);
+        ctx.lineTo(handX + armDirSign * 2.4, handY - 1.8);
+        ctx.lineTo(handX + armDirSign * 1.0, handY - 0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(handX + armDirSign * 0.6, handY + 0.2);
+        ctx.lineTo(handX + armDirSign * 2.8, handY + 0.6);
+        ctx.lineTo(handX + armDirSign * 1.0, handY + 1.0);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        // Claws hooked tightly in locked Mediterranean draw pinch around nock
+        // Claw 1 (Index claw curling over nock)
+        ctx.beginPath();
+        ctx.moveTo(handX, handY - 1.2);
+        ctx.lineTo(handX + armDirSign * 2.0, handY - 0.6);
+        ctx.lineTo(handX + armDirSign * 1.2, handY + 0.1);
+        ctx.lineTo(handX - armDirSign * 0.2, handY - 0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Claw 2 (Middle claw curling under string)
+        ctx.beginPath();
+        ctx.moveTo(handX + armDirSign * 0.2, handY + 0.2);
+        ctx.lineTo(handX + armDirSign * 2.2, handY + 0.8);
+        ctx.lineTo(handX + armDirSign * 1.0, handY + 1.4);
+        ctx.lineTo(handX - armDirSign * 0.2, handY + 0.6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Claw 3 (Thumb support)
+        ctx.beginPath();
+        ctx.moveTo(handX - armDirSign * 0.4, handY - 0.8);
+        ctx.lineTo(handX + armDirSign * 1.2, handY - 1.2);
+        ctx.lineTo(handX + armDirSign * 0.6, handY - 0.2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Specular glint on hooked claw tips
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(handX + armDirSign * 1.8, handY - 0.4, 0.35, 0, Math.PI * 2);
+        ctx.arc(handX + armDirSign * 1.9, handY + 0.9, 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else {
       // 3 Sharp Curved Talons / Claws (Lineless)
       ctx.fillStyle = "#0f172a";
@@ -365,8 +976,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     ctx.restore();
   };
 
-  // Draw background off-hand arm if layered behind
-  if (!cfg.leftArmFront) {
+  // Draw background arms if layered behind
+  if (isArcher) {
+    drawArcherEquipment(false);
+  } else if (!cfg.leftArmFront) {
     drawLeftArmOffHand();
   }
 
@@ -374,14 +987,31 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   // 4. Dominant Right-Hand Weapon (100% Consistent Anatomical Right Hand)
   // -------------------------------------------------------------
   const drawRightHandWeapon = () => {
-    if (isShadowPass) return;
+    if (isShadowPass || isArcher) return;
     ctx.save();
     const armX = cfg.rightArmX;
     const armY = cfg.rightArmY;
+    const armDirSign = armX < 0 ? -1 : 1;
     ctx.translate(armX, armY);
 
     let swingAngle = 0;
-    if (isAttacking) {
+    if (isArcher) {
+      if (isAttacking) {
+        if (attackProgress < 0.52) {
+          // Raise & steady bow arm into aim
+          const t = attackProgress / 0.52;
+          swingAngle = -armDirSign * 0.22 * t;
+        } else if (attackProgress < 0.72) {
+          // Release recoil forward spring
+          const rel = (attackProgress - 0.52) / 0.20;
+          swingAngle = -armDirSign * 0.22 + armDirSign * Math.sin(rel * Math.PI) * 0.12;
+        } else {
+          // Return to ready stance
+          const nockT = (attackProgress - 0.72) / 0.28;
+          swingAngle = -armDirSign * 0.22 * (1 - nockT);
+        }
+      }
+    } else if (isAttacking) {
       if (attackProgress < 0.25) {
         swingAngle = -cfg.flip * (attackProgress / 0.25) * 1.0;
       } else if (attackProgress < 0.65) {
@@ -426,8 +1056,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       }
     }
 
-    const armDirSign = armX < 0 ? -1 : 1;
-    const baseArmRot = isBackView ? -0.70 * armDirSign : 0.55 * armDirSign;
+    const baseArmRot = isBackView
+      ? (isArcher ? -0.45 * armDirSign : -0.70 * armDirSign)
+      : (isArcher ? 0.35 * armDirSign : 0.55 * armDirSign);
     ctx.rotate(baseArmRot + swingAngle);
 
     // Upper Arm / Shoulder Deltoid
@@ -496,20 +1127,377 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.arc(0, -16.5, 3.0, 0, Math.PI * 2);
       ctx.fill();
     } else if (isArcher) {
-      // Recurve Hunting Bow
-      ctx.strokeStyle = "#78350f";
-      ctx.lineWidth = 2.0;
+      // Procedural Recurve Hunting Bow & Authentically Held Arrow System
+      ctx.save();
+
+      // State determination: Tension, release recoil, and loaded arrow status
+      let drawTension = 0;
+      let stringTwang = 0;
+      let isArrowLoaded = true;
+      let arrowLoadProgress = 1.0; // 0 to 1
+
+      if (isAttacking) {
+        if (attackProgress < 0.52) {
+          // Drawing the bow: tension increases smoothly to full draw
+          drawTension = Math.sin((attackProgress / 0.52) * (Math.PI / 2));
+          isArrowLoaded = true;
+          arrowLoadProgress = 1.0;
+        } else if (attackProgress < 0.72) {
+          // Release & twang: arrow has been shot and launched
+          const relT = attackProgress - 0.52;
+          stringTwang = Math.sin(relT * 60) * Math.exp(-relT * 12) * 2.8;
+          drawTension = 0;
+          isArrowLoaded = false;
+        } else {
+          // Re-nocking next arrow smoothly from quiver (0.72 to 1.0)
+          const nockT = (attackProgress - 0.72) / 0.28;
+          drawTension = 0;
+          isArrowLoaded = true;
+          arrowLoadProgress = nockT; // fresh arrow sliding into place
+        }
+      } else {
+        // IDLE / WALKING / READY STANCE: Arrow is ALWAYS securely held and ready!
+        drawTension = 0.0;
+        isArrowLoaded = true;
+        arrowLoadProgress = 1.0;
+      }
+
+      // Bow Limb Flexing under tension:
+      // When drawn, limb tips bend backward (toward archer)
+      const flexX = -armDirSign * drawTension * 3.4;
+      const topTipX = armDirSign * 3.2 + flexX;
+      const topTipY = -12.5;
+      const botTipX = armDirSign * 3.2 + flexX;
+      const botTipY = 12.5;
+
+      // Upper Recurve Limb (Wood & Horn laminates)
+      ctx.strokeStyle = "#5a2d0c";
+      ctx.lineWidth = 2.4;
       ctx.beginPath();
-      ctx.moveTo(armDirSign * 2.8, -11.0);
-      ctx.quadraticCurveTo(-armDirSign * 3.0, 0, armDirSign * 2.8, 11.0);
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(armDirSign * 5.2 + flexX * 0.5, -6.5, topTipX, topTipY);
       ctx.stroke();
 
-      ctx.strokeStyle = "rgba(226, 232, 240, 0.65)";
-      ctx.lineWidth = 0.7;
+      // Upper inner belly laminate
+      ctx.strokeStyle = "#78350f";
+      ctx.lineWidth = 1.0;
       ctx.beginPath();
-      ctx.moveTo(armDirSign * 2.8, -11.0);
-      ctx.lineTo(armDirSign * 2.8, 11.0);
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(armDirSign * 4.6 + flexX * 0.5, -6.5, topTipX - armDirSign * 0.6, topTipY);
       ctx.stroke();
+
+      // Lower Recurve Limb
+      ctx.strokeStyle = "#5a2d0c";
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(armDirSign * 5.2 + flexX * 0.5, 6.5, botTipX, botTipY);
+      ctx.stroke();
+
+      // Lower inner belly laminate
+      ctx.strokeStyle = "#78350f";
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(armDirSign * 4.6 + flexX * 0.5, 6.5, botTipX - armDirSign * 0.6, botTipY);
+      ctx.stroke();
+
+      // Horn tip reinforcement on limbs
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.arc(topTipX, topTipY, 1.2, 0, Math.PI * 2);
+      ctx.arc(botTipX, botTipY, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ivory nock groove on limb tips
+      ctx.fillStyle = "#fef3c7";
+      ctx.beginPath();
+      ctx.arc(topTipX - armDirSign * 0.4, topTipY, 0.5, 0, Math.PI * 2);
+      ctx.arc(botTipX - armDirSign * 0.4, botTipY, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Riser / Handle Wrap (Tanned leather with cross-stitches)
+      ctx.fillStyle = "#92400e";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 1.8, 3.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Carved arrow shelf on riser
+      ctx.fillStyle = "#5c2b09";
+      ctx.fillRect(-armDirSign * 0.8, -1.8, 1.6, 0.8);
+
+      ctx.strokeStyle = "#fef08a";
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(-0.8, -2.0); ctx.lineTo(0.8, 2.0);
+      ctx.moveTo(0.8, -2.0);  ctx.lineTo(-0.8, 2.0);
+      ctx.stroke();
+
+      // Bowstring (Braided sinew)
+      // When drawn or ready, string forms a clean V-notch pulled back to draw hand
+      const restingNockX = -armDirSign * 2.2;
+      const drawNockX = restingNockX - armDirSign * (drawTension * 8.6) + (stringTwang * armDirSign);
+      const drawNockY = 0;
+
+      ctx.strokeStyle = "rgba(241, 245, 249, 0.88)";
+      ctx.lineWidth = 0.85;
+      ctx.beginPath();
+      ctx.moveTo(topTipX, topTipY);
+      if (drawTension > 0.02 || isArrowLoaded) {
+        ctx.lineTo(drawNockX, drawNockY);
+        ctx.lineTo(botTipX, botTipY);
+      } else if (Math.abs(stringTwang) > 0.15) {
+        ctx.quadraticCurveTo(armDirSign * 2.8 + stringTwang, 0, botTipX, botTipY);
+      } else {
+        ctx.lineTo(botTipX, botTipY);
+      }
+      ctx.stroke();
+
+      // -------------------------------------------------------------
+      // NOCKED ARROW - ALWAYS VISIBLE IN READY / AIM STANCE
+      // Beautifully rendered with authentic cedar wood shaft, obsidian
+      // arrowhead, sinew bindings, feather fletchings, bone nock, and
+      // visible clawed goblin fingers securing the arrow!
+      // -------------------------------------------------------------
+      if (isArrowLoaded) {
+        ctx.save();
+        let arrowHeadDist = 13.5 - drawTension * 4.2;
+        if (arrowLoadProgress < 1.0) {
+          arrowHeadDist = 7.0 + arrowLoadProgress * 6.5;
+        }
+
+        const arrowHeadX = armDirSign * arrowHeadDist;
+        const arrowTailX = drawNockX;
+        const arrowShelfY = -0.5; // Rest line along the arrow shelf
+
+        // 1. High-Density Cedar Shaft
+        const shaftMinX = Math.min(arrowHeadX, arrowTailX);
+        const shaftMaxX = Math.max(arrowHeadX, arrowTailX);
+        const shaftLen = Math.abs(arrowHeadX - arrowTailX);
+
+        // Main shaft body
+        ctx.fillStyle = "#854d0e";
+        ctx.fillRect(shaftMinX, arrowShelfY - 0.8, shaftLen, 1.6);
+
+        // Wood grain specular highlight along upper edge
+        ctx.fillStyle = "#b45309";
+        ctx.fillRect(shaftMinX, arrowShelfY - 0.8, shaftLen, 0.5);
+
+        // Lower ambient shadow along bottom edge
+        ctx.fillStyle = "#5c2b09";
+        ctx.fillRect(shaftMinX, arrowShelfY + 0.4, shaftLen, 0.4);
+
+        // 2. Sinew Thread Bindings
+        ctx.fillStyle = "#3b1d06";
+        // Head binding
+        ctx.fillRect(arrowHeadX - armDirSign * 1.8, arrowShelfY - 0.9, 1.4, 1.8);
+        // Fletching front binding
+        ctx.fillRect(arrowTailX + armDirSign * 4.2, arrowShelfY - 0.9, 1.2, 1.8);
+        // Nock base binding
+        ctx.fillRect(arrowTailX + armDirSign * 0.8, arrowShelfY - 0.9, 1.0, 1.8);
+
+        // 3. Chipped Flint / Obsidian Broadhead Blade
+        ctx.save();
+        ctx.translate(arrowHeadX, arrowShelfY);
+        // Broadhead shape
+        ctx.fillStyle = "#1e293b";
+        ctx.beginPath();
+        ctx.moveTo(armDirSign * 5.2, 0);              // Point
+        ctx.lineTo(armDirSign * 0.2, -2.6);           // Upper barb
+        ctx.lineTo(armDirSign * 0.9, -0.6);           // Inner notch
+        ctx.lineTo(armDirSign * 0.9, 0.6);            // Inner notch
+        ctx.lineTo(armDirSign * 0.2, 2.6);            // Lower barb
+        ctx.closePath();
+        ctx.fill();
+
+        // Obsidian facet highlight (chiseled stone reflection)
+        ctx.fillStyle = "#475569";
+        ctx.beginPath();
+        ctx.moveTo(armDirSign * 5.2, 0);
+        ctx.lineTo(armDirSign * 0.8, -1.8);
+        ctx.lineTo(armDirSign * 1.8, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Keen razor edge specular glint
+        ctx.strokeStyle = "rgba(248, 250, 252, 0.9)";
+        ctx.lineWidth = 0.55;
+        ctx.beginPath();
+        ctx.moveTo(armDirSign * 5.2, 0);
+        ctx.lineTo(armDirSign * 0.3, -2.5);
+        ctx.stroke();
+        ctx.restore();
+
+        // 4. Split-Feather Fletchings at the Nock
+        // Upper Vane (Forest green with gold striping)
+        ctx.fillStyle = "#166534";
+        ctx.beginPath();
+        ctx.moveTo(arrowTailX, arrowShelfY - 0.4);
+        ctx.lineTo(arrowTailX - armDirSign * 4.2, arrowShelfY - 2.8);
+        ctx.lineTo(arrowTailX - armDirSign * 1.4, arrowShelfY - 2.8);
+        ctx.lineTo(arrowTailX + armDirSign * 0.4, arrowShelfY - 0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Upper Vane Accent Stripe
+        ctx.fillStyle = "#fef08a";
+        ctx.beginPath();
+        ctx.moveTo(arrowTailX - armDirSign * 2.8, arrowShelfY - 0.4);
+        ctx.lineTo(arrowTailX - armDirSign * 3.4, arrowShelfY - 2.6);
+        ctx.lineTo(arrowTailX - armDirSign * 2.4, arrowShelfY - 2.6);
+        ctx.lineTo(arrowTailX - armDirSign * 1.8, arrowShelfY - 0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Lower Vane (Deep emerald green)
+        ctx.fillStyle = "#15803d";
+        ctx.beginPath();
+        ctx.moveTo(arrowTailX, arrowShelfY + 0.4);
+        ctx.lineTo(arrowTailX - armDirSign * 4.2, arrowShelfY + 2.8);
+        ctx.lineTo(arrowTailX - armDirSign * 1.4, arrowShelfY + 2.8);
+        ctx.lineTo(arrowTailX + armDirSign * 0.4, arrowShelfY + 0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Lower Vane Accent Stripe
+        ctx.fillStyle = "#fef08a";
+        ctx.beginPath();
+        ctx.moveTo(arrowTailX - armDirSign * 2.8, arrowShelfY + 0.4);
+        ctx.lineTo(arrowTailX - armDirSign * 3.4, arrowShelfY + 2.6);
+        ctx.lineTo(arrowTailX - armDirSign * 2.4, arrowShelfY + 2.6);
+        ctx.lineTo(arrowTailX - armDirSign * 1.8, arrowShelfY + 0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        // 5. Polished Bone Nock
+        ctx.fillStyle = "#fef3c7";
+        ctx.beginPath();
+        ctx.fillRect(arrowTailX - armDirSign * 1.2, arrowShelfY - 0.8, 1.4, 1.6);
+        ctx.fill();
+
+        // Nock string notch slot
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(arrowTailX - armDirSign * 0.4, arrowShelfY - 0.5, 0.6, 1.0);
+
+        // -------------------------------------------------------------
+        // 6. DRAW HAND FINGERS GRIPPING THE ARROW NOCK & BOWSTRING!
+        // Clawed goblin fingers physically pinch and hook the nock
+        // -------------------------------------------------------------
+        ctx.save();
+        ctx.translate(arrowTailX, arrowShelfY);
+
+        // Index finger knuckle curling over top of the nock
+        ctx.fillStyle = skinBase;
+        ctx.beginPath();
+        ctx.ellipse(armDirSign * 0.2, -1.4, 1.2, 0.9, armDirSign * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sharp obsidian claw curling over the arrow shaft
+        ctx.fillStyle = "#0f172a";
+        ctx.beginPath();
+        ctx.moveTo(armDirSign * 0.6, -1.8);
+        ctx.lineTo(armDirSign * 1.8, -0.7);
+        ctx.lineTo(armDirSign * 0.8, -0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Middle finger knuckle curling under the nock & string
+        ctx.fillStyle = skinBase;
+        ctx.beginPath();
+        ctx.ellipse(armDirSign * 0.2, 1.4, 1.2, 0.9, -armDirSign * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sharp obsidian claw curling under the string
+        ctx.fillStyle = "#0f172a";
+        ctx.beginPath();
+        ctx.moveTo(armDirSign * 0.6, 1.8);
+        ctx.lineTo(armDirSign * 1.8, 0.7);
+        ctx.lineTo(armDirSign * 0.8, 0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Thumb pad locking the shaft
+        ctx.fillStyle = skinDark;
+        ctx.beginPath();
+        ctx.arc(-armDirSign * 0.6, 0, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Specular glint on claw hooks
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(armDirSign * 1.4, -0.8, 0.25, 0, Math.PI * 2);
+        ctx.arc(armDirSign * 1.4, 0.8, 0.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore(); // Nock fingers
+
+        ctx.restore(); // Arrow
+      }
+
+      // -------------------------------------------------------------
+      // 7. BOW HAND GRIP - CLAWED GOBLIN HAND SECURING THE ARROW TO THE RISER!
+      // The hand grips the bow handle and the index knuckle & claw hold
+      // the arrow shaft securely against the arrow shelf so it won't slip!
+      // -------------------------------------------------------------
+      ctx.save();
+      // Bow hand palm / wrist wrap behind handle
+      ctx.fillStyle = "#451a03";
+      ctx.beginPath();
+      ctx.ellipse(-armDirSign * 0.4, 1.0, 1.8, 2.6, armDirSign * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Lower 3 fingers wrapped around the lower handle grip (below arrow shelf)
+      for (let f = 0; f < 3; f++) {
+        const fY = 1.2 + f * 1.4;
+        ctx.fillStyle = skinBase;
+        ctx.beginPath();
+        ctx.ellipse(armDirSign * 0.6, fY, 1.0, 0.75, armDirSign * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sharp claw tip curling around handle
+        ctx.fillStyle = "#0f172a";
+        ctx.beginPath();
+        ctx.moveTo(armDirSign * 1.3, fY - 0.4);
+        ctx.lineTo(armDirSign * 2.2, fY);
+        ctx.lineTo(armDirSign * 1.3, fY + 0.4);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Goblin Thumb wrapped around inner handle
+      ctx.fillStyle = skinDark;
+      ctx.beginPath();
+      ctx.ellipse(-armDirSign * 0.8, -0.2, 1.1, 0.8, -armDirSign * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // INDEX FINGER CURLED OVER THE ARROW SHAFT!
+      // Key archery anatomy: index finger sits right over the arrow pass,
+      // locking the shaft securely down onto the shelf!
+      if (isArrowLoaded) {
+        ctx.fillStyle = skinBase;
+        ctx.beginPath();
+        ctx.ellipse(armDirSign * 0.5, -1.2, 1.2, 0.9, -armDirSign * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sharp obsidian claw clamping over the top of the shaft
+        ctx.fillStyle = "#0f172a";
+        ctx.beginPath();
+        ctx.moveTo(armDirSign * 1.0, -1.8);
+        ctx.lineTo(armDirSign * 2.2, -0.8);
+        ctx.lineTo(armDirSign * 1.1, -0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Highlight glint on index claw
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(armDirSign * 1.8, -0.9, 0.28, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore(); // Bow hand grip
+
+      ctx.restore(); // Recurve Bow & Arrow System
     } else if (isKing) {
       // Royal Golden Great Cleaver (Lineless)
       ctx.rotate(armDirSign * 0.4);
@@ -638,17 +1626,19 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     }
 
     // Hand Knuckle holding weapon
-    ctx.fillStyle = skinBase;
-    ctx.beginPath();
-    ctx.arc(0, 0, 1.6, 0, Math.PI * 2);
-    ctx.fill();
+    if (!isArcher) {
+      ctx.fillStyle = skinBase;
+      ctx.beginPath();
+      ctx.arc(0, 0, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.restore(); // Weapon
     ctx.restore(); // Arm
   };
 
   // Draw background weapon arm if layered behind
-  if (!cfg.rightArmFront) {
+  if (!isArcher && !cfg.rightArmFront) {
     drawRightHandWeapon();
   }
 
@@ -658,129 +1648,283 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   const drawClawedLegs = () => {
     ctx.save();
 
-    const leftStep = moving ? Math.sin(walkPhase) * 2.8 : 0;
-    const rightStep = moving ? -Math.sin(walkPhase) * 2.8 : 0;
+    const rightStep = moving ? Math.sin(walkPhase) * 2.8 : 0;
+    const leftStep = moving ? -Math.sin(walkPhase) * 2.8 : 0;
 
-    const draw3ClawFoot = (footX, footY, dirFlip, isFacingBack) => {
+    const draw3ClawFoot = (footX, footY, dirX, isFacingBack) => {
       if (isShadowPass) return;
 
-      // Ragged Ankle Bandage Wrap (Lineless)
+      // 1. Ragged Ankle Bandage Wrap (Lineless)
       ctx.fillStyle = "#451a03";
       ctx.beginPath();
-      ctx.ellipse(footX - dirFlip * 0.4, footY - 1.2, 1.4, 0.9, dirFlip * 0.2, 0, Math.PI * 2);
+      ctx.ellipse(footX, footY - 1.0, 1.4, 0.85, (dirX || 0) * 0.15, 0, Math.PI * 2);
       ctx.fill();
 
-      // 3 Sharp Obsidian Talons / Toes (Lineless)
+      // Wrap highlight
+      ctx.fillStyle = "#78350f";
+      ctx.fillRect(footX - 0.8, footY - 1.3, 1.6, 0.5);
+
+      // 2. Obsidian Talons / Toes (Lineless)
       ctx.fillStyle = "#0f172a";
 
       if (isFacingBack) {
-        // Back View: Heel spur + claws pointing slightly away
+        // Back View: Heel spur + claws gripping away
         ctx.beginPath();
-        ctx.moveTo(footX - 1.2, footY);
-        ctx.lineTo(footX - 1.6, footY + 1.2);
-        ctx.lineTo(footX - 0.6, footY + 0.8);
-        ctx.lineTo(footX + 0.6, footY + 0.8);
-        ctx.lineTo(footX + 1.6, footY + 1.2);
-        ctx.lineTo(footX + 1.2, footY);
-        ctx.closePath();
-        ctx.fill();
-      } else {
-        // Front / Side / Diag: 3 Splayed Obsidian Claws
-        // Claw 1 (Inner)
-        ctx.beginPath();
-        ctx.moveTo(footX - dirFlip * 1.4, footY - 0.2);
-        ctx.lineTo(footX + dirFlip * 1.8, footY + 0.8);
-        ctx.lineTo(footX - dirFlip * 0.6, footY + 0.8);
+        ctx.moveTo(footX - 1.2, footY - 0.2);
+        ctx.lineTo(footX - 1.6, footY + 0.8);
+        ctx.lineTo(footX - 0.5, footY + 0.5);
+        ctx.lineTo(footX + 0.5, footY + 0.5);
+        ctx.lineTo(footX + 1.6, footY + 0.8);
+        ctx.lineTo(footX + 1.2, footY - 0.2);
         ctx.closePath();
         ctx.fill();
 
-        // Claw 2 (Center Main Talon)
+        // Sharp heel spur pointing back
+        ctx.fillStyle = "#1e293b";
         ctx.beginPath();
-        ctx.moveTo(footX - dirFlip * 0.6, footY - 0.4);
-        ctx.lineTo(footX + dirFlip * 3.4, footY + 0.4);
-        ctx.lineTo(footX + dirFlip * 0.4, footY + 0.9);
+        ctx.moveTo(footX - 0.5, footY - 0.5);
+        ctx.lineTo(footX, footY - 1.6);
+        ctx.lineTo(footX + 0.5, footY - 0.5);
+        ctx.closePath();
+        ctx.fill();
+      } else if (Math.abs(dirX) > 0.3) {
+        // Profile or 3/4 Diagonal View: 3 forward-gripping curved obsidian talons
+        const d = dirX > 0 ? 1 : -1;
+
+        // Claw 1 (Inner / Far)
+        ctx.beginPath();
+        ctx.moveTo(footX - d * 0.8, footY - 0.2);
+        ctx.lineTo(footX + d * 1.8, footY + 0.4);
+        ctx.lineTo(footX - d * 0.2, footY + 0.6);
         ctx.closePath();
         ctx.fill();
 
-        // Claw 3 (Outer)
+        // Claw 2 (Center Main Talon - Longest)
         ctx.beginPath();
-        ctx.moveTo(footX, footY);
-        ctx.lineTo(footX + dirFlip * 2.2, footY - 0.6);
-        ctx.lineTo(footX + dirFlip * 1.2, footY + 0.4);
+        ctx.moveTo(footX - d * 0.4, footY - 0.3);
+        ctx.lineTo(footX + d * 2.8, footY + 0.3);
+        ctx.lineTo(footX + d * 0.3, footY + 0.7);
+        ctx.closePath();
+        ctx.fill();
+
+        // Claw 3 (Outer / Near)
+        ctx.beginPath();
+        ctx.moveTo(footX, footY - 0.1);
+        ctx.lineTo(footX + d * 1.9, footY + 0.6);
+        ctx.lineTo(footX + d * 0.5, footY + 0.7);
         ctx.closePath();
         ctx.fill();
 
         // Specular glint on main talon
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.arc(footX + dirFlip * 2.0, footY + 0.2, 0.35, 0, Math.PI * 2);
+        ctx.arc(footX + d * 1.8, footY + 0.25, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Direct Front View: Splayed forward claws (pointing down towards viewer)
+        // Claw 1 (Screen-left)
+        ctx.beginPath();
+        ctx.moveTo(footX - 1.2, footY - 0.2);
+        ctx.lineTo(footX - 1.9, footY + 0.8);
+        ctx.lineTo(footX - 0.6, footY + 0.6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Claw 2 (Center)
+        ctx.beginPath();
+        ctx.moveTo(footX - 0.4, footY - 0.3);
+        ctx.lineTo(footX, footY + 1.1);
+        ctx.lineTo(footX + 0.4, footY - 0.3);
+        ctx.closePath();
+        ctx.fill();
+
+        // Claw 3 (Screen-right)
+        ctx.beginPath();
+        ctx.moveTo(footX + 0.6, footY + 0.6);
+        ctx.lineTo(footX + 1.9, footY + 0.8);
+        ctx.lineTo(footX + 1.2, footY - 0.2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Specular glint on center claw
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(footX, footY + 0.65, 0.3, 0, Math.PI * 2);
         ctx.fill();
       }
     };
 
-    if (cfg.view === "front" || cfg.view === "back") {
-      // Front / Back Symmetrical Digitigrade Leg Anchors
-      const leftFootX = -4.2;
-      const leftFootY = 1.0 - (moving ? Math.max(0, leftStep) : 0);
-      const isBack = cfg.view === "back";
+    const drawSingleLeg = (hipX, footX, isNearLeg, legStep, legDirX) => {
+      if (isShadowPass) return;
+      ctx.save();
 
-      // Left Leg (Muscular Thigh -> Knobby Knee -> Ankle -> Paw) - Lineless
-      ctx.fillStyle = isShadowPass ? "#000000" : (isBack ? skinDark : skinBase);
+      const hipY = torsoY + 5.8; // Pelvis connection: -9.5 + 5.8 = -3.7
+      const actualFootX = footX + (moving ? legStep * 0.45 : 0);
+      const footLift = moving ? Math.max(0, -legStep) * 0.45 : 0;
+      const actualFootY = 1.0 - footLift;
+
+      // Forward knee displacement based on facing direction and stance
+      const kneeForward = (isProfileView ? 2.0 : isFrontView ? 0.4 : 1.2) * (legDirX !== 0 ? legDirX : (hipX < 0 ? -0.8 : 0.8));
+      const kneeX = (hipX + actualFootX) * 0.5 + kneeForward;
+      const kneeY = -1.4 - footLift * 0.25;
+
+      // Digitigrade hock displacement (bends backward from knee / ankle)
+      const hockBack = (isProfileView ? 1.0 : 0.5) * (legDirX !== 0 ? legDirX : (hipX < 0 ? -0.4 : 0.4));
+      const hockX = actualFootX - hockBack;
+      const hockY = actualFootY - 1.2;
+
+      ctx.fillStyle = isNearLeg ? skinBase : skinDark;
+
+      // Muscular Lineless Digitigrade Leg Silhouette
       ctx.beginPath();
-      ctx.moveTo(-5.4, torsoY + 5.2);
-      ctx.quadraticCurveTo(-6.6, torsoY + 8.2, -5.2, torsoY + 10.5); // Knobby outer knee
-      ctx.quadraticCurveTo(-5.8, torsoY + 12.5, leftFootX - 1.2, leftFootY); // Hock to ankle
-      ctx.lineTo(leftFootX + (isBack ? 0 : -1.0), leftFootY + 0.8);
-      ctx.lineTo(leftFootX + 1.8, leftFootY);
-      ctx.quadraticCurveTo(-2.0, torsoY + 9.5, -2.2, torsoY + 5.2); // Inner groin
+      // Outer hip edge
+      const hipW = 1.6;
+      ctx.moveTo(hipX - hipW, hipY);
+      // Outer thigh curve down to knobby knee
+      ctx.quadraticCurveTo(kneeX - (legDirX >= 0 ? 0.8 : -0.8), kneeY - 0.7, kneeX - 0.5, kneeY);
+      // Knobby knee front apex
+      ctx.quadraticCurveTo(kneeX + (legDirX >= 0 ? 1.0 : -1.0), kneeY + 0.5, hockX, hockY);
+      // Hock down to ankle
+      ctx.lineTo(actualFootX - 1.0, actualFootY);
+      ctx.lineTo(actualFootX + 1.0, actualFootY);
+      // Inner ankle up along calf / groin to inner hip
+      ctx.quadraticCurveTo(kneeX + (legDirX >= 0 ? 0.6 : -0.6), kneeY + 0.8, hipX + hipW, hipY);
       ctx.closePath();
       ctx.fill();
 
-      draw3ClawFoot(leftFootX, leftFootY, -1, isBack);
-
-      // Right Leg - Lineless
-      const rightFootX = 4.2;
-      const rightFootY = 1.0 - (moving ? Math.max(0, rightStep) : 0);
-
+      // Knee joint depth accent
+      ctx.strokeStyle = isNearLeg ? (isSlowed ? "#0284c7" : "#1a4c23") : "rgba(0, 0, 0, 0.22)";
+      ctx.lineWidth = 0.6;
       ctx.beginPath();
-      ctx.moveTo(2.2, torsoY + 5.2);
-      ctx.quadraticCurveTo(2.0, torsoY + 9.5, rightFootX - 1.8, rightFootY);
-      ctx.lineTo(rightFootX + (isBack ? 0 : 1.0), rightFootY + 0.8);
-      ctx.lineTo(rightFootX + 1.2, rightFootY);
-      ctx.quadraticCurveTo(5.8, torsoY + 12.5, 5.2, torsoY + 10.5);
-      ctx.quadraticCurveTo(6.6, torsoY + 8.2, 5.4, torsoY + 5.2);
-      ctx.closePath();
-      ctx.fill();
+      ctx.arc(kneeX, kneeY, 0.65, 0, Math.PI * 2);
+      ctx.stroke();
 
-      draw3ClawFoot(rightFootX, rightFootY, 1, isBack);
+      // Talon foot
+      draw3ClawFoot(actualFootX, actualFootY, legDirX, isBackView);
+
+      ctx.restore();
+    };
+
+    // Layer depth sorting: Far leg drawn first in shadow, Near leg drawn second
+    const isRightNear = isFrontView ? true : cfg.rightLegFront;
+    const isLeftNear = isFrontView ? true : !cfg.rightLegFront;
+
+    if (cfg.rightLegFront) {
+      // Left leg is far leg, Right leg is near leg
+      drawSingleLeg(cfg.leftLegHipX, cfg.leftLegFootX, isLeftNear, leftStep, cfg.facingDirX);
+      drawSingleLeg(cfg.rightLegHipX, cfg.rightLegFootX, isRightNear, rightStep, cfg.facingDirX);
     } else {
-      // Profile / Diagonal Digitigrade Leg Anchors - Lineless
-      const drawSingleProfileLeg = (isBackLeg) => {
-        const hipX = isBackLeg ? -cfg.flip * 2.6 : cfg.flip * 2.2;
-        const step = isBackLeg ? -legSwing : legSwing;
-        const footX = hipX + (moving ? step * 0.52 : 0) + cfg.flip * 1.4;
-        const footY = 1.0 - (moving ? Math.max(0, Math.sin(walkPhase + (isBackLeg ? Math.PI : 0)) * 2.4) : 0);
-
-        ctx.fillStyle = isShadowPass ? "#000000" : (isBackLeg ? skinDark : skinBase);
-        ctx.beginPath();
-        ctx.moveTo(hipX - 2.0, torsoY + 5.2);
-        ctx.quadraticCurveTo(hipX + (isBackLeg ? -2.8 : 2.8), torsoY + 8.6, hipX + cfg.flip * 1.2, torsoY + 11.2); // Crouched knee
-        ctx.quadraticCurveTo(hipX + (isBackLeg ? -1.6 : 1.6), torsoY + 13.0, footX - 1.4, footY); // Digitigrade hock
-        ctx.lineTo(footX + cfg.flip * 2.4, footY + 0.4);
-        ctx.quadraticCurveTo(hipX + (isBackLeg ? 1.6 : 3.2), torsoY + 8.8, hipX + 2.0, torsoY + 5.2);
-        ctx.closePath();
-        ctx.fill();
-
-        draw3ClawFoot(footX, footY, cfg.flip, false);
-      };
-
-      drawSingleProfileLeg(true);
-      drawSingleProfileLeg(false);
+      // Right leg is far leg, Left leg is near leg
+      drawSingleLeg(cfg.rightLegHipX, cfg.rightLegFootX, isRightNear, rightStep, cfg.facingDirX);
+      drawSingleLeg(cfg.leftLegHipX, cfg.leftLegFootX, isLeftNear, leftStep, cfg.facingDirX);
     }
+
     ctx.restore();
   };
 
   drawClawedLegs();
+
+  // Quiver for Goblin Archer (Slung across the back)
+  const drawQuiver = () => {
+    if (isShadowPass || !isArcher) return;
+    ctx.save();
+    const qX = torsoX - cfg.flip * (isProfileView ? 3.0 : 1.8);
+    const qY = torsoY - 2.5;
+    ctx.translate(qX, qY);
+    ctx.rotate(cfg.flip * -0.32 + hunchTilt);
+
+    // Cylindrical leather quiver
+    ctx.fillStyle = "#451a03";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 3.2, 8.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Shaded side
+    ctx.fillStyle = "#271003";
+    ctx.beginPath();
+    ctx.ellipse(cfg.flip * 0.8, 0, 1.8, 8.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stitched leather collar rim at top
+    ctx.fillStyle = "#78350f";
+    ctx.beginPath();
+    ctx.ellipse(0, -7.5, 3.4, 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Brass rivets
+    ctx.fillStyle = "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(-1.5, -4.0, 0.5, 0, Math.PI * 2);
+    ctx.arc(1.5, -4.0, 0.5, 0, Math.PI * 2);
+    ctx.arc(0, 2.0, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4 Arrows sticking out of the open mouth
+    const arrowOffsets = [
+      { x: -1.6, y: -7.5, rot: -0.22 },
+      { x: -0.5, y: -8.0, rot: -0.08 },
+      { x: 0.6, y: -8.0, rot: 0.10 },
+      { x: 1.8, y: -7.5, rot: 0.25 }
+    ];
+    for (let i = 0; i < arrowOffsets.length; i++) {
+      const ao = arrowOffsets[i];
+      ctx.save();
+      ctx.translate(ao.x, ao.y);
+      ctx.rotate(ao.rot);
+
+      // Shaft
+      ctx.fillStyle = "#854d0e";
+      ctx.fillRect(-0.4, -6.5, 0.8, 7.0);
+
+      // Feather Fletchings
+      ctx.fillStyle = (i % 2 === 0) ? "#166534" : "#15803d";
+      ctx.beginPath();
+      ctx.moveTo(-0.4, -6.5);
+      ctx.lineTo(-1.8, -5.2);
+      ctx.lineTo(-1.8, -2.5);
+      ctx.lineTo(-0.4, -2.0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(0.4, -6.5);
+      ctx.lineTo(1.8, -5.2);
+      ctx.lineTo(1.8, -2.5);
+      ctx.lineTo(0.4, -2.0);
+      ctx.closePath();
+      ctx.fill();
+
+      // Ivory tips on feathers
+      ctx.fillStyle = "#fef08a";
+      ctx.beginPath();
+      ctx.moveTo(-1.8, -5.2);
+      ctx.lineTo(-1.8, -4.2);
+      ctx.lineTo(-0.4, -4.6);
+      ctx.lineTo(-0.4, -5.6);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(1.8, -5.2);
+      ctx.lineTo(1.8, -4.2);
+      ctx.lineTo(0.4, -4.6);
+      ctx.lineTo(0.4, -5.6);
+      ctx.closePath();
+      ctx.fill();
+
+      // Bone nock
+      ctx.fillStyle = "#fef3c7";
+      ctx.fillRect(-0.5, -7.2, 1.0, 1.0);
+
+      ctx.restore();
+    }
+
+    ctx.restore();
+  };
+
+  if (!isBackView) {
+    drawQuiver();
+  }
 
   // -------------------------------------------------------------
   // 6. Hunched Torso & Sculpted Musculature & Ragged Loincloth
@@ -1049,6 +2193,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
 
   ctx.restore(); // End Torso
 
+  if (isBackView) {
+    drawQuiver();
+  }
+
   if (cfg.tailFront) {
     drawTail();
   }
@@ -1189,14 +2337,17 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.ellipse(ex, ey, isProfile ? 1.3 : 1.5, isProfile ? 1.0 : 1.2, 0, 0, Math.PI * 2);
         ctx.fill();
 
+        const pupilShiftX = isArcher ? Math.cos(facingAngle) * 0.55 : 0;
+        const pupilShiftY = isArcher ? Math.sin(facingAngle) * 0.45 : 0;
+
         ctx.fillStyle = "#000000";
         ctx.beginPath();
-        ctx.ellipse(ex, ey, 0.42, 0.95, 0, 0, Math.PI * 2);
+        ctx.ellipse(ex + pupilShiftX, ey + pupilShiftY, 0.42, 0.95, 0, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.arc(ex - 0.35, ey - 0.35, 0.38, 0, Math.PI * 2);
+        ctx.arc(ex + pupilShiftX * 0.5 - 0.35, ey + pupilShiftY * 0.5 - 0.35, 0.38, 0, Math.PI * 2);
         ctx.fill();
       };
 
@@ -1376,11 +2527,15 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   // -------------------------------------------------------------
   // Foreground Arms (Layered over Torso and Head)
   // -------------------------------------------------------------
-  if (cfg.leftArmFront) {
-    drawLeftArmOffHand();
-  }
-  if (cfg.rightArmFront) {
-    drawRightHandWeapon();
+  if (isArcher) {
+    drawArcherEquipment(true);
+  } else {
+    if (cfg.leftArmFront) {
+      drawLeftArmOffHand();
+    }
+    if (cfg.rightArmFront) {
+      drawRightHandWeapon();
+    }
   }
 
   ctx.restore(); // Root
@@ -1407,8 +2562,301 @@ export function drawGoblin(ctx, screenX, screenY, sSize, type, ent, isShadowPass
 }
 
 export { drawSegmentedGoblin };
+
+// =============================================================
+// Goblin Archer Projectile System
+// High-performance procedural lineless arrows with authentic physics
+// =============================================================
+export const goblinArrows = [];
+
+export function shootGoblinArrow(opts = {}) {
+  const x = opts.x || 0;
+  const y = opts.y || 0;
+  const angle = opts.angle || 0;
+  const speed = opts.speed || 720;
+  const damage = opts.damage || 20;
+  const sourceId = opts.sourceId || "goblin_archer";
+  const maxDistance = opts.maxDistance || 1500;
+
+  const arrow = {
+    id: "arrow_" + Math.random().toString(36).substr(2, 9),
+    x,
+    y,
+    startX: x,
+    startY: y,
+    angle,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    speed,
+    damage,
+    sourceId,
+    maxDistance,
+    distanceTraveled: 0,
+    state: "flying", // "flying" | "stuck" | "spent"
+    createdAt: performance.now(),
+    stuckTime: 0,
+    vibration: 0,
+    trail: []
+  };
+
+  goblinArrows.push(arrow);
+  return arrow;
+}
+
+export function shootGoblinArrowVolley(opts = {}) {
+  const baseAngle = opts.angle || 0;
+  const angles = [baseAngle - 0.16, baseAngle, baseAngle + 0.16];
+  const spawned = [];
+  for (let i = 0; i < angles.length; i++) {
+    spawned.push(shootGoblinArrow({
+      ...opts,
+      angle: angles[i],
+      speed: (opts.speed || 720) * (0.95 + i * 0.05)
+    }));
+  }
+  return spawned;
+}
+
+export function updateGoblinArrows(dt, bounds = null, targets = null) {
+  const now = performance.now();
+  for (let i = goblinArrows.length - 1; i >= 0; i--) {
+    const a = goblinArrows[i];
+
+    if (a.state === "flying") {
+      const stepX = a.vx * dt;
+      const stepY = a.vy * dt;
+      a.x += stepX;
+      a.y += stepY;
+      a.distanceTraveled += Math.hypot(stepX, stepY);
+
+      // Trailing motion history
+      a.trail.push({ x: a.x, y: a.y, time: now });
+      if (a.trail.length > 8) a.trail.shift();
+
+      // Subtle aerodynamic feather / dust particle
+      if (typeof window !== "undefined" && window.spawnParticle && Math.random() < 0.35) {
+        window.spawnParticle({
+          x: a.x - Math.cos(a.angle) * 12,
+          y: a.y - Math.sin(a.angle) * 12,
+          vx: -Math.cos(a.angle) * 35 + (Math.random() - 0.5) * 20,
+          vy: -Math.sin(a.angle) * 35 + (Math.random() - 0.5) * 20,
+          color: ["#166534", "#22c55e", "#fef08a", "#e2e8f0"],
+          size: 1.5,
+          maxLife: 0.3,
+          drag: 0.92,
+          shrink: true
+        });
+      }
+
+      // Check collision with targets if provided
+      let hitTarget = false;
+      if (targets && Array.isArray(targets)) {
+        for (const target of targets) {
+          const dx = a.x - target.x;
+          const dy = a.y - target.y;
+          const r = target.radius || 30;
+          if (dx * dx + dy * dy < r * r) {
+            hitTarget = true;
+            a.state = "stuck";
+            a.stuckTime = now;
+            a.targetHit = target;
+            if (typeof target.onHit === "function") {
+              target.onHit(a);
+            }
+            break;
+          }
+        }
+      }
+
+      // Check collision with bounds if provided
+      if (!hitTarget && bounds) {
+        if (
+          a.x < bounds.minX || a.x > bounds.maxX ||
+          a.y < bounds.minY || a.y > bounds.maxY
+        ) {
+          a.state = "stuck";
+          a.stuckTime = now;
+          a.x = Math.max(bounds.minX, Math.min(bounds.maxX, a.x));
+          a.y = Math.max(bounds.minY, Math.min(bounds.maxY, a.y));
+        }
+      }
+
+      // Max range
+      if (!hitTarget && a.distanceTraveled >= a.maxDistance) {
+        a.state = "stuck";
+        a.stuckTime = now;
+      }
+
+      // If just stuck: spawn wood splinters and impact spark particles
+      if (a.state === "stuck") {
+        if (typeof window !== "undefined" && window.spawnParticle) {
+          for (let p = 0; p < 7; p++) {
+            const pAngle = a.angle + Math.PI + (Math.random() - 0.5) * 1.6;
+            const pSpd = 40 + Math.random() * 90;
+            window.spawnParticle({
+              x: a.x,
+              y: a.y,
+              vx: Math.cos(pAngle) * pSpd,
+              vy: Math.sin(pAngle) * pSpd,
+              color: ["#854d0e", "#b45309", "#94a3b8", "#e2e8f0", "#166534"],
+              size: 2.0,
+              maxLife: 0.45,
+              drag: 0.90,
+              gravity: 120,
+              shrink: true
+            });
+          }
+        }
+      }
+    } else if (a.state === "stuck") {
+      const elapsed = (now - a.stuckTime) / 1000;
+      // Authentic damped spring vibration on impact
+      a.vibration = Math.sin(elapsed * 45) * Math.exp(-elapsed * 9) * 0.18;
+
+      // Clean up after 3.5 seconds
+      if (elapsed > 3.5) {
+        goblinArrows.splice(i, 1);
+      }
+    }
+  }
+}
+
+export function drawGoblinArrow(ctx, arrow) {
+  if (!arrow) return;
+  const now = performance.now();
+  const isStuck = arrow.state === "stuck";
+  const stuckAge = isStuck ? (now - arrow.stuckTime) / 1000 : 0;
+  const alpha = isStuck && stuckAge > 2.5 ? Math.max(0, 1 - (stuckAge - 2.5)) : 1.0;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Aerodynamic speed motion blur streak behind flying arrow
+  if (!isStuck && arrow.trail && arrow.trail.length > 2) {
+    ctx.save();
+    for (let t = 0; t < arrow.trail.length - 1; t++) {
+      const p1 = arrow.trail[t];
+      const p2 = arrow.trail[t + 1];
+      const trailAlpha = (t / arrow.trail.length) * 0.35;
+      ctx.strokeStyle = `rgba(226, 232, 240, ${trailAlpha})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Position and orient arrow along trajectory
+  ctx.translate(arrow.x, arrow.y);
+  ctx.rotate(arrow.angle + (arrow.vibration || 0));
+
+  // 1. Shaft (Hardwood Cedar)
+  ctx.fillStyle = "#854d0e";
+  ctx.fillRect(-16, -1.0, 22, 2.0);
+
+  // Shaft specular wood grain
+  ctx.fillStyle = "#a16207";
+  ctx.fillRect(-16, -1.0, 22, 0.7);
+
+  // 2. Sinew wrapping at arrowhead socket
+  ctx.fillStyle = "#451a03";
+  ctx.fillRect(4.5, -1.2, 2.0, 2.4);
+
+  // 3. Arrowhead (Chipped Flint / Obsidian Broadhead Blade)
+  ctx.fillStyle = "#334155";
+  ctx.beginPath();
+  ctx.moveTo(11.0, 0);       // Tip
+  ctx.lineTo(5.5, -3.2);     // Upper barb
+  ctx.lineTo(6.5, -0.6);     // Inner notch
+  ctx.lineTo(6.5, 0.6);      // Inner notch
+  ctx.lineTo(5.5, 3.2);      // Lower barb
+  ctx.closePath();
+  ctx.fill();
+
+  // Razor edge specular glint
+  ctx.strokeStyle = "rgba(241, 245, 249, 0.85)";
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(11.0, 0);
+  ctx.lineTo(5.8, -3.0);
+  ctx.stroke();
+
+  // 4. Feather Fletchings (Authentic Hunter Green & Pale Gold)
+  // Upper Vane
+  ctx.fillStyle = "#166534";
+  ctx.beginPath();
+  ctx.moveTo(-16.0, -0.5);
+  ctx.lineTo(-15.0, -3.6);
+  ctx.lineTo(-10.5, -3.6);
+  ctx.lineTo(-9.0, -0.5);
+  ctx.closePath();
+  ctx.fill();
+
+  // Upper Vane Accent Stripe
+  ctx.fillStyle = "#fef08a";
+  ctx.beginPath();
+  ctx.moveTo(-13.5, -0.5);
+  ctx.lineTo(-13.0, -3.4);
+  ctx.lineTo(-12.0, -3.4);
+  ctx.lineTo(-12.5, -0.5);
+  ctx.closePath();
+  ctx.fill();
+
+  // Lower Vane
+  ctx.fillStyle = "#15803d";
+  ctx.beginPath();
+  ctx.moveTo(-16.0, 0.5);
+  ctx.lineTo(-15.0, 3.6);
+  ctx.lineTo(-10.5, 3.6);
+  ctx.lineTo(-9.0, 0.5);
+  ctx.closePath();
+  ctx.fill();
+
+  // Lower Vane Accent Stripe
+  ctx.fillStyle = "#fef08a";
+  ctx.beginPath();
+  ctx.moveTo(-13.5, 0.5);
+  ctx.lineTo(-13.0, 3.4);
+  ctx.lineTo(-12.0, 3.4);
+  ctx.lineTo(-12.5, 0.5);
+  ctx.closePath();
+  ctx.fill();
+
+  // Thread binding securing fletching to shaft
+  ctx.fillStyle = "#78350f";
+  ctx.fillRect(-16.0, -1.2, 1.2, 2.4);
+  ctx.fillRect(-9.2, -1.2, 1.2, 2.4);
+
+  // 5. Bone Nock at the rear
+  ctx.fillStyle = "#fef3c7";
+  ctx.fillRect(-17.5, -0.9, 1.5, 1.8);
+  ctx.fillStyle = "#0f172a";
+  ctx.fillRect(-17.5, -0.4, 0.8, 0.8);
+
+  ctx.restore();
+}
+
+export function drawGoblinArrows(ctx) {
+  for (let i = 0; i < goblinArrows.length; i++) {
+    drawGoblinArrow(ctx, goblinArrows[i]);
+  }
+}
+
+export function clearGoblinArrows() {
+  goblinArrows.length = 0;
+}
+
 if (typeof window !== "undefined") {
   window.drawGoblinEntity = drawGoblinEntity;
   window.drawSegmentedGoblin = drawSegmentedGoblin;
   window.drawGoblin = drawGoblin;
+  window.goblinArrows = goblinArrows;
+  window.shootGoblinArrow = shootGoblinArrow;
+  window.shootGoblinArrowVolley = shootGoblinArrowVolley;
+  window.updateGoblinArrows = updateGoblinArrows;
+  window.drawGoblinArrow = drawGoblinArrow;
+  window.drawGoblinArrows = drawGoblinArrows;
+  window.clearGoblinArrows = clearGoblinArrows;
 }

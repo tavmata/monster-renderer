@@ -5,5 +5,8 @@ export * from './wolves.js';
 export * from './trolls.js';
 export * from './goblins.js';
 export * from './genericMobs.js';
+export * from './skeletons.js';
+export * from './spiders.js';
+export * from './voidTerror.js';
 export * from './mobUi.js';
 export * from './monster.js';

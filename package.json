@@ -9,7 +9,7 @@
     "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "lint": "node --check src/index.js && node --check src/helpers.js && node --check src/slimes.js && node --check src/wolves.js && node --check src/trolls.js && node --check src/goblins.js && node --check src/genericMobs.js && node --check src/mobUi.js && node --check src/monster.js",
+    "lint": "node --check src/index.js && node --check src/helpers.js && node --check src/slimes.js && node --check src/wolves.js && node --check src/trolls.js && node --check src/goblins.js && node --check src/skeletons.js && node --check src/spiders.js && node --check src/voidTerror.js && node --check src/genericMobs.js && node --check src/mobUi.js && node --check src/monster.js",
     "test": "node --check src/index.js"
   },
   "keywords": [

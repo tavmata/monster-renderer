@@ -1,5 +1,7 @@
 // genericMobs.js - Procedural Generic Mob, Undead, Beast & Boss Renderer
 import { computeFastSeed, safeCreateRadialGradient } from './helpers.js';
+import { drawSpiderEntity } from './spiders.js';
+import { drawVoidTerrorEntity } from './voidTerror.js';
 
 const HUMANOID_REGEX = /skeleton|undead|knight|archer|soldier|guard|humanoid/i;
 
@@ -577,108 +579,8 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
       ctx.fill();
       ctx.restore();
     }
-  } else if (type.includes("weaver") || type.includes("spider")) {
-    const r = 30;
-    const walkPhase = isMoving ? (nowMs * 0.01 + seed) : (nowMs * 0.002 + seed);
-    const breathe = Math.sin(nowMs * 0.004 + seed) * 1.5;
-
-    if (isShadowPass) {
-      return;
-    } else {
-      // Crystalline Spider Legs (4 pairs)
-      ctx.save();
-      for (let side of [-1, 1]) {
-        for (let i = 0; i < 4; i++) {
-          const legPhase = walkPhase + i * 0.8 + (side === -1 ? Math.PI : 0);
-          const legLift = isMoving ? Math.sin(legPhase) * 6 : 0;
-          const legSpread = (i - 1.5) * 8;
-
-          const rootX = side * 10;
-          const rootY = legSpread - 2;
-          const kneeX = side * (24 + (3 - i) * 3);
-          const kneeY = legSpread - 12 - Math.max(0, legLift);
-          const tipX = side * (32 + (3 - i) * 4);
-          const tipY = legSpread + 16 - Math.max(0, legLift);
-
-          ctx.beginPath();
-          ctx.moveTo(rootX, rootY);
-          ctx.lineTo(kneeX, kneeY);
-          ctx.lineTo(tipX, tipY);
-          ctx.strokeStyle = "#c084fc";
-          ctx.lineWidth = 2.4;
-          ctx.lineCap = "round";
-          ctx.stroke();
-
-          // Knee crystal facet
-          ctx.beginPath();
-          ctx.arc(kneeX, kneeY, 2.2, 0, Math.PI * 2);
-          ctx.fillStyle = "#f0abfc";
-          ctx.fill();
-        }
-      }
-
-      // Faceted Gemstone Abdomen
-      const abdoGrad = ctx.createRadialGradient(0, 8 + breathe, 2, 0, 8 + breathe, 16);
-      abdoGrad.addColorStop(0, "#e879f9");
-      abdoGrad.addColorStop(0.5, "#a855f7");
-      abdoGrad.addColorStop(1, "#581c87");
-      ctx.fillStyle = abdoGrad;
-      ctx.strokeStyle = "#f5d0fe";
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.ellipse(0, 8 + breathe, 14, 18, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Facet Lines across Abdomen
-      ctx.strokeStyle = "rgba(245, 208, 254, 0.5)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(-10, 4 + breathe);
-      ctx.lineTo(0, 18 + breathe);
-      ctx.lineTo(10, 4 + breathe);
-      ctx.moveTo(0, -6 + breathe);
-      ctx.lineTo(0, 24 + breathe);
-      ctx.stroke();
-
-      // Carapace / Thorax
-      ctx.fillStyle = "#3b0764";
-      ctx.strokeStyle = "#d8b4fe";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.ellipse(0, -6 + breathe * 0.5, 11, 10, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Front Pedipalps / Mandibles
-      ctx.fillStyle = "#e879f9";
-      ctx.beginPath();
-      ctx.moveTo(-6, -14 + breathe * 0.5);
-      ctx.lineTo(-9, -21 + breathe * 0.5);
-      ctx.lineTo(-4, -17 + breathe * 0.5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(6, -14 + breathe * 0.5);
-      ctx.lineTo(9, -21 + breathe * 0.5);
-      ctx.lineTo(4, -17 + breathe * 0.5);
-      ctx.closePath();
-      ctx.fill();
-
-      // Cluster of 6 Radiant Eyes
-      ctx.fillStyle = "#f43f5e";
-      const eyeCoords = [
-        [-4, -12], [4, -12],
-        [-6, -9], [6, -9],
-        [-2, -8], [2, -8]
-      ];
-      for (const [ex, ey] of eyeCoords) {
-        ctx.beginPath();
-        ctx.arc(ex, ey + breathe * 0.5, 1.8, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-    }
+  } else if (type.includes("weaver") || type.includes("spider") || type.includes("tarantula") || type.includes("broodmother") || type.includes("stalker")) {
+    drawSpiderEntity(ctx, 0, 0, ent || { type }, isShadowPass);
   } else if (type.includes("frost_giant")) {
     const r = 36;
     const breathe = Math.sin(now * 0.003 + seed) * 2;
@@ -899,86 +801,8 @@ export function drawGenericMob(ctx, x, y, ent, isShadowPass = false) {
 
       ctx.restore();
     }
-  } else if (type.includes("terror")) {
-    const r = 36;
-    const pulse = Math.sin(now * 0.005 + seed) * 3;
-
-    if (isShadowPass) {
-      return;
-    } else {
-      ctx.save();
-      // Writhing Shadowy Tentacles
-      ctx.strokeStyle = "#3b0764";
-      ctx.lineWidth = 3.5;
-      ctx.lineCap = "round";
-      for (let t = 0; t < 8; t++) {
-        const tAngle = (t / 8) * Math.PI * 2;
-        const wave = Math.sin(now * 0.006 + t * 1.2 + seed) * 12;
-        const startX = Math.cos(tAngle) * (r * 0.7);
-        const startY = Math.sin(tAngle) * (r * 0.7);
-        const endX = Math.cos(tAngle) * (r * 1.45 + pulse) + wave;
-        const endY = Math.sin(tAngle) * (r * 1.45 + pulse) + wave;
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.quadraticCurveTo(startX * 1.4, startY * 1.4 + wave, endX, endY);
-        ctx.stroke();
-      }
-
-      // Swirling Cosmic Body Mass
-      const voidGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, r + pulse);
-      voidGrad.addColorStop(0, "#090014");
-      voidGrad.addColorStop(0.5, "#2e1065");
-      voidGrad.addColorStop(0.85, "#581c87");
-      voidGrad.addColorStop(1, "rgba(88, 28, 135, 0)");
-      ctx.fillStyle = voidGrad;
-      ctx.beginPath();
-      ctx.arc(0, 0, r + pulse, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Central Event Horizon Singularity
-      ctx.beginPath();
-      ctx.arc(0, 0, 10, 0, Math.PI * 2);
-      ctx.fillStyle = "#000000";
-      ctx.fill();
-      ctx.strokeStyle = "#c084fc";
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
-
-      // Multiple Eldritch Eyes
-      const voidEyes = [
-        { x: -14, y: -10, rad: 5.5 },
-        { x: 14, y: -8, rad: 4.8 },
-        { x: -8, y: 12, rad: 4.2 },
-        { x: 10, y: 10, rad: 5.2 },
-      ];
-      for (const eye of voidEyes) {
-        ctx.beginPath();
-        ctx.arc(eye.x, eye.y, eye.rad, 0, Math.PI * 2);
-        ctx.fillStyle = "#c084fc";
-        ctx.fill();
-        ctx.strokeStyle = "#581c87";
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-
-        ctx.fillStyle = "#000000";
-        ctx.beginPath();
-        ctx.ellipse(eye.x, eye.y, eye.rad * 0.28, eye.rad * 0.8, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Orbiting Dark Cosmic Motes
-      for (let m = 0; m < 3; m++) {
-        const mAngle = now * 0.002 + (m / 3) * Math.PI * 2;
-        const mX = Math.cos(mAngle) * (r * 1.2);
-        const mY = Math.sin(mAngle) * (r * 0.8);
-        ctx.beginPath();
-        ctx.arc(mX, mY, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = "#e879f9";
-        ctx.fill();
-      }
-
-      ctx.restore();
-    }
+  } else if (type.includes("terror") || (type.includes("void") && !type.includes("wolf") && !type.includes("stalker"))) {
+    drawVoidTerrorEntity(ctx, 0, 0, ent || { type }, isShadowPass);
   } else if (type.includes("tidecaller")) {
     const r = 32;
     const breathe = Math.sin(now * 0.005 + seed) * 2;
