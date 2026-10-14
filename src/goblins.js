@@ -44,7 +44,8 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   const isBrute = type.includes("brute");
   const isWarrior = type.includes("warrior") || isBrute;
   const isKing = type === "boss_goblin_king";
-  const isBoss = isKing || /^boss_/.test(type);
+  const isChieftain = type === "boss_goblin" || type.includes("chieftain") || type === "chieftain";
+  const isBoss = isKing || isChieftain || /^boss_/.test(type);
   const scale = isKing ? 2.9 : isBrute ? 2.3 : isBoss ? 2.25 : isBasicGoblin ? 1.7 : 1.8;
 
   // -------------------------------------------------------------
@@ -270,10 +271,10 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
   // -------------------------------------------------------------
   // Harmonic Natural Goblin Palette (Earthy Moss & Forest Darks)
   // -------------------------------------------------------------
-  const skinBase = isSlowed ? "#38bdf8" : isThief ? "#1f5f30" : isMage ? "#1b6350" : isWarrior ? "#287038" : isBrute ? "#1e562c" : isKing ? "#34853d" : "#2d7a38";
-  const skinDark = isSlowed ? "#0284c7" : isThief ? "#123d1e" : isMage ? "#104235" : isWarrior ? "#164622" : isBrute ? "#10361a" : isKing ? "#1d5225" : "#1a4c23";
+  const skinBase = isSlowed ? "#38bdf8" : isThief ? "#1f5f30" : isMage ? "#1b6350" : isChieftain ? "#1e5e32" : isWarrior ? "#287038" : isBrute ? "#1e562c" : isKing ? "#34853d" : "#2d7a38";
+  const skinDark = isSlowed ? "#0284c7" : isThief ? "#123d1e" : isMage ? "#104235" : isChieftain ? "#103c1e" : isWarrior ? "#164622" : isBrute ? "#10361a" : isKing ? "#1d5225" : "#1a4c23";
   const innerEar = isSlowed ? "#0284c7" : isMage ? "#0d3b2f" : "#14401e";
-  const eyeColor = isMage ? "#c084fc" : isKing ? "#fbbf24" : isThief ? "#f97316" : isWarrior ? "#ea580c" : "#facc15";
+  const eyeColor = isMage ? "#c084fc" : isKing ? "#fbbf24" : isChieftain ? "#ea580c" : isThief ? "#f97316" : isWarrior ? "#ea580c" : "#facc15";
 
   // Ground shadow circle removed per design rule: never render solid shadow circles around monsters
 
@@ -938,6 +939,59 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.arc(handX + armDirSign * 1.9, handY + 0.9, 0.35, 0, Math.PI * 2);
         ctx.fill();
       }
+    } else if (isWarrior || isChieftain) {
+      // Warrior / Chieftain: Reinforced Wooden Plank Shield with Iron Boss & Spikes
+      ctx.save();
+      ctx.translate(handX, handY);
+      ctx.rotate(armDirSign * 0.15);
+
+      const shieldR = isChieftain ? 7.2 : 5.8;
+      // Round wooden plank shield
+      ctx.fillStyle = "#78350f";
+      ctx.beginPath();
+      ctx.arc(0, 0, shieldR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Wood plank seams
+      ctx.strokeStyle = "#451a03";
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(-shieldR * 0.8, -shieldR * 0.4); ctx.lineTo(shieldR * 0.8, -shieldR * 0.4);
+      ctx.moveTo(-shieldR, 0); ctx.lineTo(shieldR, 0);
+      ctx.moveTo(-shieldR * 0.8, shieldR * 0.4); ctx.lineTo(shieldR * 0.8, shieldR * 0.4);
+      ctx.stroke();
+
+      // Iron rim
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(0, 0, shieldR - 0.8, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Central iron boss
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.arc(0, 0, shieldR * 0.38, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Iron boss spike
+      ctx.fillStyle = "#94a3b8";
+      ctx.beginPath();
+      ctx.arc(0, 0, shieldR * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (isChieftain) {
+        // Tribal red war crest painted on shield
+        ctx.fillStyle = "#dc2626";
+        ctx.beginPath();
+        ctx.moveTo(0, -shieldR * 0.65);
+        ctx.lineTo(shieldR * 0.4, shieldR * 0.3);
+        ctx.lineTo(0, shieldR * 0.1);
+        ctx.lineTo(-shieldR * 0.4, shieldR * 0.3);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
     } else {
       // 3 Sharp Curved Talons / Claws (Lineless)
       ctx.fillStyle = "#0f172a";
@@ -1029,6 +1083,9 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
           } else if (isKing) {
             slashGrad.addColorStop(0, `rgba(253, 224, 71, ${arcAlpha})`);
             slashGrad.addColorStop(1, `rgba(245, 158, 11, 0)`);
+          } else if (isChieftain) {
+            slashGrad.addColorStop(0, `rgba(249, 115, 22, ${arcAlpha})`);
+            slashGrad.addColorStop(1, `rgba(220, 38, 38, 0)`);
           } else if (isWarrior) {
             slashGrad.addColorStop(0, `rgba(248, 113, 113, ${arcAlpha})`);
             slashGrad.addColorStop(1, `rgba(220, 38, 38, 0)`);
@@ -1043,7 +1100,7 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
           ctx.stroke();
 
           // Particle Sparks at blade perimeter
-          ctx.fillStyle = isMage ? "#f0abfc" : isKing ? "#fef08a" : isWarrior ? "#fca5a5" : "#fef08a";
+          ctx.fillStyle = isMage ? "#f0abfc" : isKing ? "#fef08a" : isChieftain ? "#fb923c" : isWarrior ? "#fca5a5" : "#fef08a";
           ctx.beginPath();
           const sparkAngle = facingAngle + 0.4;
           ctx.arc(Math.cos(sparkAngle) * 18.5, Math.sin(sparkAngle) * 18.5, 0.9, 0, Math.PI * 2);
@@ -1086,22 +1143,33 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
     ctx.ellipse(handX - armDirSign * 1.8, handY + 0.4, 1.4, 1.2, armDirSign * 0.3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Warrior / Brute Spiked Pauldron on weapon shoulder
-    if (isWarrior) {
-      ctx.fillStyle = "#475569";
+    // Warrior / Brute / Chieftain Spiked Pauldron on weapon shoulder
+    if (isWarrior || isChieftain) {
+      ctx.fillStyle = isChieftain ? "#1e293b" : "#475569";
       ctx.beginPath();
-      ctx.arc(0, -0.6, 2.8, Math.PI * 0.8, Math.PI * 2.2, false);
+      ctx.arc(0, -0.6, isChieftain ? 3.4 : 2.8, Math.PI * 0.8, Math.PI * 2.2, false);
       ctx.closePath();
       ctx.fill();
 
-      // Spike
-      ctx.fillStyle = "#94a3b8";
+      // Primary Spike
+      ctx.fillStyle = isChieftain ? "#f59e0b" : "#94a3b8";
       ctx.beginPath();
       ctx.moveTo(-armDirSign * 1.2, -1.8);
-      ctx.lineTo(0, -4.2);
+      ctx.lineTo(0, isChieftain ? -5.2 : -4.2);
       ctx.lineTo(armDirSign * 1.2, -1.8);
       ctx.closePath();
       ctx.fill();
+
+      if (isChieftain) {
+        // Forward secondary spike
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.moveTo(armDirSign * 0.8, -1.2);
+        ctx.lineTo(armDirSign * 3.6, -3.2);
+        ctx.lineTo(armDirSign * 1.8, 0.4);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
 
     ctx.save();
@@ -1524,6 +1592,50 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.fillStyle = "#ef4444";
       ctx.beginPath();
       ctx.arc(armDirSign * 3.2, -10.0, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (isChieftain) {
+      // Chieftain Heavy Jagged Iron War Axe / Cleaver (Lineless)
+      ctx.rotate(armDirSign * 0.45);
+      // Heavy cord-wrapped shaft
+      ctx.fillStyle = "#451a03";
+      ctx.fillRect(-1.4, -3.0, 2.8, 14.0);
+      ctx.fillStyle = "#78350f";
+      ctx.fillRect(-1.1, -1.0, 2.2, 5.0); // Grip wrap
+      // Bone pommel spike
+      ctx.fillStyle = "#fef3c7";
+      ctx.beginPath();
+      ctx.moveTo(-1.2, 11.0); ctx.lineTo(0, 14.0); ctx.lineTo(1.2, 11.0);
+      ctx.closePath();
+      ctx.fill();
+
+      // Brutal double-notched battle axe blade
+      ctx.fillStyle = "#334155";
+      ctx.beginPath();
+      ctx.moveTo(0, -2.5);
+      ctx.lineTo(-armDirSign * 1.5, -16.5);
+      ctx.lineTo(armDirSign * 8.5, -18.5);
+      ctx.lineTo(armDirSign * 10.5, -13.0);
+      ctx.lineTo(armDirSign * 7.5, -9.5);
+      ctx.lineTo(armDirSign * 9.5, -5.5);
+      ctx.lineTo(0, -2.5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Razor steel edge
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(armDirSign * 8.5, -18.0);
+      ctx.lineTo(armDirSign * 10.2, -13.0);
+      ctx.stroke();
+
+      // Tribal red blood groove / war rune
+      ctx.fillStyle = "#dc2626";
+      ctx.beginPath();
+      ctx.moveTo(armDirSign * 2.0, -9.0);
+      ctx.lineTo(armDirSign * 5.5, -12.0);
+      ctx.lineTo(armDirSign * 3.5, -8.0);
+      ctx.closePath();
       ctx.fill();
     } else if (isThief) {
       // Assassin Serrated Poison Dagger (Lineless)
@@ -2134,6 +2246,114 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       ctx.beginPath();
       ctx.arc(0, 2.5, 1.2, 0, Math.PI * 2);
       ctx.fill();
+    } else if (isChieftain) {
+      // Chieftain: Heavy Studded Beast-Pelt Cuirass, Shaggy Fur Collar & Spiked War Belt
+      // 1. Hardened dark leather cuirass
+      ctx.fillStyle = "#2d1b0d";
+      ctx.fillRect(-20, -20, 40, 40);
+
+      // 2. Shaggy Wolf Fur Collar draping over shoulders
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.moveTo(-15, -12);
+      ctx.lineTo(-12, -4); ctx.lineTo(-8, -6);
+      ctx.lineTo(-4, -2);  ctx.lineTo(0, -5);
+      ctx.lineTo(4, -2);   ctx.lineTo(8, -6);
+      ctx.lineTo(12, -4);  ctx.lineTo(15, -12);
+      ctx.lineTo(15, -20); ctx.lineTo(-15, -20);
+      ctx.closePath();
+      ctx.fill();
+
+      // Fur tuft highlights
+      ctx.fillStyle = "#334155";
+      ctx.beginPath();
+      ctx.moveTo(-9, -8); ctx.lineTo(-6, -4); ctx.lineTo(-3, -7);
+      ctx.moveTo(3, -7);  ctx.lineTo(6, -4);  ctx.lineTo(9, -8);
+      ctx.fill();
+
+      // 3. Crossed Beast Fang Trophy Necklace (front view)
+      if (isFrontView) {
+        ctx.strokeStyle = "#451a03";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(-5.5, -6.5);
+        ctx.quadraticCurveTo(0, -1.0, 5.5, -6.5);
+        ctx.stroke();
+
+        // Hanging carved beast fangs
+        const fangXs = [-3.0, 0.0, 3.0];
+        ctx.fillStyle = "#fffbeb";
+        for (let f = 0; f < fangXs.length; f++) {
+          const fx = fangXs[f];
+          ctx.beginPath();
+          ctx.moveTo(fx - 0.7, -3.5 + Math.abs(fx) * 0.4);
+          ctx.lineTo(fx, -0.6 + Math.abs(fx) * 0.4);
+          ctx.lineTo(fx + 0.7, -3.5 + Math.abs(fx) * 0.4);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      // 4. Heavy Spiked War Belt
+      ctx.fillStyle = "#1c1917";
+      ctx.fillRect(-20, 0.6, 40, 3.2);
+
+      // Bronze studs on belt
+      ctx.fillStyle = "#f59e0b";
+      for (let b = -12; b <= 12; b += 4) {
+        ctx.fillRect(b - 0.5, 1.8, 1.2, 1.0);
+      }
+
+      // 5. Beast Skull Belt Buckle
+      ctx.fillStyle = "#fef3c7";
+      ctx.beginPath();
+      ctx.moveTo(-2.2, 0.8);
+      ctx.lineTo(2.2, 0.8);
+      ctx.lineTo(1.8, 4.4);
+      ctx.lineTo(0, 5.2);
+      ctx.lineTo(-1.8, 4.4);
+      ctx.closePath();
+      ctx.fill();
+
+      // Skull eye sockets
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.arc(-0.8, 2.2, 0.45, 0, Math.PI * 2);
+      ctx.arc(0.8, 2.2, 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 6. Layered Tribal War Pelt Loincloth
+      ctx.fillStyle = "#78350f";
+      ctx.beginPath();
+      ctx.moveTo(-15, 3.8);
+      ctx.lineTo(15, 3.8);
+      ctx.lineTo(15, 20);
+      ctx.lineTo(-15, 20);
+      ctx.closePath();
+      ctx.fill();
+
+      // Jagged war pelt fringes
+      ctx.fillStyle = "#451a03";
+      ctx.beginPath();
+      ctx.moveTo(-12, 7.5);
+      ctx.lineTo(-9, 4.5); ctx.lineTo(-6, 7.8);
+      ctx.lineTo(-3, 5.0); ctx.lineTo(0, 8.5);
+      ctx.lineTo(3, 5.0);  ctx.lineTo(6, 7.8);
+      ctx.lineTo(9, 4.5);  ctx.lineTo(12, 7.5);
+      ctx.lineTo(15, 12);  ctx.lineTo(-15, 12);
+      ctx.closePath();
+      ctx.fill();
+
+      // Central armored groin guard flap
+      ctx.fillStyle = "#334155";
+      ctx.beginPath();
+      ctx.moveTo(-2.4, 3.5);
+      ctx.lineTo(2.4, 3.5);
+      ctx.lineTo(1.8, 8.2);
+      ctx.lineTo(0, 9.2);
+      ctx.lineTo(-1.8, 8.2);
+      ctx.closePath();
+      ctx.fill();
     } else if (isWarrior) {
       // Warrior: Studded Iron Plate Harness & Chainmail Trim (Lineless)
       ctx.fillStyle = "#475569";
@@ -2186,6 +2406,34 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
       // Belt
       ctx.fillStyle = "#1e1008";
       ctx.fillRect(-20, 1.5, 40, 2.2);
+    } else {
+      // Universal Fallback: Rugged Distressed Leather Loincloth (Guarantees no goblin is ever naked)
+      ctx.fillStyle = "#78350f";
+      ctx.beginPath();
+      ctx.moveTo(-20, 0.8);
+      ctx.lineTo(20, 0.8);
+      ctx.lineTo(20, 20);
+      ctx.lineTo(-20, 20);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#451a03";
+      ctx.beginPath();
+      ctx.moveTo(-15, 6.2);
+      ctx.lineTo(-12, 3.8); ctx.lineTo(-9, 6.8);
+      ctx.lineTo(-6, 4.2);  ctx.lineTo(-3, 7.2);
+      ctx.lineTo(0, 4.0);   ctx.lineTo(3, 7.2);
+      ctx.lineTo(6, 4.2);   ctx.lineTo(9, 6.8);
+      ctx.lineTo(12, 3.8);  ctx.lineTo(15, 6.2);
+      ctx.lineTo(15, 10);   ctx.lineTo(-15, 10);
+      ctx.closePath();
+      ctx.fill();
+
+      // Belt
+      ctx.fillStyle = "#b45309";
+      ctx.fillRect(-20, 0.8, 40, 1.6);
+      ctx.fillStyle = "#fde68a";
+      ctx.fillRect(-20, 1.2, 40, 0.6);
     }
 
     ctx.restore(); // End Apparel Clip
@@ -2459,6 +2707,78 @@ export function drawGoblinEntity(ctx, x, y, ent, isShadowPass = false) {
         ctx.arc(headX, headY - 6.8, 1.2, 0, Math.PI * 2);
         ctx.fill();
       }
+    } else if (isChieftain) {
+      // Chieftain: Horned War Headdress with Curled Horns & Tribal Feathers (Lineless)
+      // Spiked Bronze Browband
+      ctx.fillStyle = "#78350f";
+      ctx.fillRect(headX - 6.5, headY - 3.4, 13.0, 2.4);
+      ctx.fillStyle = "#b45309";
+      ctx.fillRect(headX - 6.5, headY - 2.8, 13.0, 1.0);
+
+      // Bronze studs
+      ctx.fillStyle = "#fbbf24";
+      ctx.beginPath();
+      ctx.arc(headX - 4.5, headY - 2.2, 0.7, 0, Math.PI * 2);
+      ctx.arc(headX - 1.5, headY - 2.2, 0.7, 0, Math.PI * 2);
+      ctx.arc(headX + 1.5, headY - 2.2, 0.7, 0, Math.PI * 2);
+      ctx.arc(headX + 4.5, headY - 2.2, 0.7, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Left Ram / Beast War Horn (Curling out and up)
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.moveTo(headX - 5.5, headY - 3.2);
+      ctx.quadraticCurveTo(headX - 11.5, headY - 6.5, headX - 12.0, headY - 11.5);
+      ctx.quadraticCurveTo(headX - 9.0, headY - 13.0, headX - 7.5, headY - 9.5);
+      ctx.quadraticCurveTo(headX - 6.0, headY - 6.5, headX - 4.0, headY - 3.5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Horn ridge highlights
+      ctx.fillStyle = "#334155";
+      ctx.beginPath();
+      ctx.moveTo(headX - 8.5, headY - 6.0);
+      ctx.lineTo(headX - 11.2, headY - 10.8);
+      ctx.lineTo(headX - 9.5, headY - 9.5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Right Ram / Beast War Horn
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.moveTo(headX + 5.5, headY - 3.2);
+      ctx.quadraticCurveTo(headX + 11.5, headY - 6.5, headX + 12.0, headY - 11.5);
+      ctx.quadraticCurveTo(headX + 9.0, headY - 13.0, headX + 7.5, headY - 9.5);
+      ctx.quadraticCurveTo(headX + 6.0, headY - 6.5, headX + 4.0, headY - 3.5);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#334155";
+      ctx.beginPath();
+      ctx.moveTo(headX + 8.5, headY - 6.0);
+      ctx.lineTo(headX + 11.2, headY - 10.8);
+      ctx.lineTo(headX + 9.5, headY - 9.5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Central Tall Tribal War Feather / Plume
+      const plumeFlutter = Math.sin(nowMs * 0.007 + seed) * 1.5;
+      ctx.fillStyle = "#dc2626"; // Crimson war feather
+      ctx.beginPath();
+      ctx.moveTo(headX - 1.2, headY - 3.5);
+      ctx.quadraticCurveTo(headX - 2.5 + plumeFlutter, headY - 11.0, headX + plumeFlutter * 1.2, headY - 15.5);
+      ctx.quadraticCurveTo(headX + 2.5 + plumeFlutter, headY - 11.0, headX + 1.2, headY - 3.5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Inner feather stripe
+      ctx.fillStyle = "#facc15";
+      ctx.beginPath();
+      ctx.moveTo(headX - 0.4, headY - 4.0);
+      ctx.lineTo(headX + plumeFlutter * 0.8, headY - 13.5);
+      ctx.lineTo(headX + 0.4, headY - 4.0);
+      ctx.closePath();
+      ctx.fill();
     } else if (isThief) {
       // Thief: Dark Hood / Cowl (Lineless)
       ctx.fillStyle = "#1e293b";
